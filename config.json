@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "check_interval": 2.0,
+  "contacts": [
+    "文件传输助手"
+  ],
+  "time_ranges": [
+    {
+      "start": "09:00",
+      "end": "12:00"
+    },
+    {
+      "start": "13:00",
+      "end": "18:00"
+    }
+  ],
+  "reply_message": "您好，我现在正在忙，暂时无法回复消息。\n如有急事请电话联系我，谢谢！",
+  "log_file": "reply_log.txt",
+  "llm": {
+    "enabled": true,
+    "provider": "doubao",
+    "api_endpoint": "",
+    "model": "",
+    "max_tokens": 500,
+    "temperature": 0.8,
+    "character": "kurisu",
+    "enable_context": true,
+    "context_window": 10
+  }
+}

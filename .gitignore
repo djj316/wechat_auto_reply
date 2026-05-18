@@ -1,0 +1,19 @@
+# 环境变量文件（包含敏感 API Key）
+.env
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 日志文件
+reply_log.txt
+AutomationLog.txt
+
+# 编辑器/IDE
+.vscode/
+.idea/
+
+# 系统文件
+Thumbs.db
+.DS_Store
