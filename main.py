@@ -1,8 +1,8 @@
 """
-微信自控回复助手 v2.0 - 主程序入口
+Amadeus 智能 AI 助手 v2.0 - 主程序入口
 
-对微信的特定聊天对象，在特定时间段内自动回复。
-支持多提供商大模型驱动的角色扮演回复和预设消息两种模式。
+多平台、多模态智能 AI 助手。支持大模型驱动的角色扮演对话、
+Web 管理面板、Live2D 交互等多种能力。
 
 支持的 LLM 提供商:
   - doubao   : 豆包（火山引擎）
@@ -13,10 +13,11 @@
   - glm      : 智谱（GLM）
 
 使用说明:
-    python main.py              # 使用默认配置启动
+    python main.py                          # 使用默认配置启动（微信自动回复）
     python main.py --config my_config.json  # 使用自定义配置
-    python main.py --no-llm     # 禁用大模型回复，使用预设消息
-    python main.py --provider deepseek  # 切换提供商
+    python main.py --no-llm                 # 禁用大模型回复，使用预设消息
+    python main.py --provider deepseek      # 切换提供商
+    python main.py --web-admin              # 启动 Web 管理面板
 """
 
 import sys
@@ -62,8 +63,8 @@ def print_banner():
     """打印程序启动横幅"""
     banner = """
 ╔══════════════════════════════════════════╗
-║       微信自控回复助手 v2.0               ║
-║    大模型驱动 · 角色扮演 · 智能回复       ║
+║         Amadeus 智能 AI 助手 v2.0         ║
+║    多平台 · 大模型驱动 · 角色扮演         ║
 ╚══════════════════════════════════════════╝
 """
     print(banner)
@@ -102,7 +103,7 @@ def _is_in_time_range_now(config: Config) -> bool:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="微信自控回复助手 v2.0 - 大模型驱动智能回复"
+        description="Amadeus 智能 AI 助手 v2.0 - 多平台 · 大模型驱动 · 角色扮演"
     )
     parser.add_argument(
         "--config", "-c",
@@ -137,6 +138,23 @@ def parse_args():
         "--list-providers",
         action="store_true",
         help="列出所有支持的 LLM 提供商"
+    )
+    parser.add_argument(
+        "--web-admin", "-w",
+        action="store_true",
+        help="同时启动 Web 管理面板（默认地址: http://127.0.0.1:5000）"
+    )
+    parser.add_argument(
+        "--web-host",
+        type=str,
+        default="127.0.0.1",
+        help="Web 管理面板监听地址（默认: 127.0.0.1）"
+    )
+    parser.add_argument(
+        "--web-port",
+        type=int,
+        default=5000,
+        help="Web 管理面板监听端口（默认: 5000）"
     )
     return parser.parse_args()
 
@@ -193,6 +211,31 @@ def init_llm_client(config: Config, args) -> Optional[LLMClient]:
 def main():
     """主函数"""
     global _running, _llm_client
+
+    # 保存原始 stdout，防止 Flask 接管后 print 崩溃
+    import sys as _sys
+    _original_stdout = _sys.stdout
+
+    def _safe_print(*args, **kwargs):
+        """安全的 print，避免 Flask 接管 stdout 后崩溃"""
+        try:
+            print(*args, **kwargs)
+        except (ValueError, OSError):
+            try:
+                # 尝试恢复到原始 stdout
+                if _sys.stdout is not _original_stdout:
+                    _sys.stdout = _original_stdout
+                print(*args, **kwargs)
+            except Exception:
+                pass
+
+    def _restore_stdout():
+        """恢复 stdout 到原始状态"""
+        try:
+            if _sys.stdout is not _original_stdout:
+                _sys.stdout = _original_stdout
+        except Exception:
+            pass
 
     # 注册信号处理
     signal.signal(signal.SIGINT, signal_handler)
@@ -262,18 +305,102 @@ def main():
     set_llm_client(_llm_client)
     print()
 
-    # 检查微信是否运行
-    print("[主程序] 正在检查微信客户端...")
-    wechat_window = find_wechat_window()
-    if not wechat_window:
-        print("[主程序] ⚠️ 未检测到微信窗口，请确保微信已登录并打开")
-        print("[主程序] 程序将继续运行，等待微信启动...")
-    else:
-        print("[主程序] ✅ 微信客户端已检测到")
+    # ============================================================
+    # Web 管理面板（可选）
+    # ============================================================
+    if args.web_admin:
+        try:
+            from web.app import create_app, set_llm_client as web_set_llm, set_live2d_llm_client as web_set_live2d_llm
+            from llm_client import LLMClient
+            import threading
 
-    print()
-    print("[主程序] 🟢 开始运行... (按 Ctrl+C 停止)")
-    print()
+            web_app = create_app(args.config)
+            web_set_llm(_llm_client)
+
+            # 创建 Live2D 专用 LLM 客户端（使用独立的 Amadeus 对话提示词）
+            if _llm_client is not None and _llm_client.is_ready:
+                try:
+                    live2d_client = LLMClient(
+                        provider=config.llm.provider,
+                        api_endpoint=config.llm.api_endpoint or None,
+                        model=config.llm.model or None,
+                        max_tokens=config.llm.max_tokens,
+                        temperature=config.llm.temperature,
+                        character="kurisu_live2d",
+                        enable_context=config.llm.enable_context,
+                        context_window=20,  # Live2D 对话保留更多上下文（20轮）
+                    )
+                    if live2d_client.is_ready:
+                        web_set_live2d_llm(live2d_client)
+                        print("[主程序] ✅ Live2D 对话专用客户端已初始化（使用 Amadeus 自然对话风格）")
+                    else:
+                        print("[主程序] ⚠️ Live2D 对话客户端初始化失败，将使用主客户端")
+                except Exception as e:
+                    print(f"[主程序] ⚠️ Live2D 对话客户端创建失败: {e}")
+            else:
+                print("[主程序] ⚠️ 主 LLM 客户端未就绪，Live2D 对话将不可用")
+
+            def _run_web():
+                # 将 Flask 的 stdout/stderr 重定向到 os.devnull，
+                # 防止 Flask 关闭主线程的 stdout 导致 print 崩溃
+                import io as _io
+                try:
+                    old_stdout = _sys.stdout
+                    old_stderr = _sys.stderr
+                    _sys.stdout = _sys.stderr  # Flask 输出到 stderr
+                    web_app.run(
+                        host=args.web_host,
+                        port=args.web_port,
+                        debug=False,
+                        use_reloader=False,
+                    )
+                finally:
+                    _sys.stdout = old_stdout
+                    _sys.stderr = old_stderr
+
+            web_thread = threading.Thread(
+                target=_run_web,
+                daemon=True,
+            )
+            web_thread.start()
+            # 给 Flask 一点时间启动
+            time.sleep(0.5)
+            # Flask 启动后立即恢复 stdout，防止后续 print 崩溃
+            _restore_stdout()
+            _safe_print(f"[主程序] 🌐 Web 管理面板: http://{args.web_host}:{args.web_port}")
+            _safe_print(f"[主程序]    在浏览器中打开以上地址管理配置和查看状态")
+            _safe_print()
+        except ImportError as e:
+            _safe_print(f"[主程序] ⚠️ Web 管理面板加载失败: {e}")
+            _safe_print(f"[主程序]    请确保已安装 Flask: pip install flask")
+        except Exception as e:
+            _safe_print(f"[主程序] ⚠️ Web 管理面板启动失败: {e}")
+
+    # 如果启用了 Web 管理面板，默认不启动微信聊天模块，等待用户在 Web 上点击"启动"
+    if args.web_admin:
+        _running = False
+        # 同步 Web 面板的运行状态
+        try:
+            from web.app import set_running as web_set_running
+            web_set_running(False)
+        except Exception:
+            pass
+        _safe_print("[主程序] 🔴 微信聊天模块默认已暂停，请在 Web 管理面板中点击「启动」按钮开启")
+        _safe_print()
+    else:
+        # 非 Web 模式：正常启动微信聊天模块
+        # 检查微信是否运行
+        _safe_print("[主程序] 正在检查微信客户端...")
+        wechat_window = find_wechat_window()
+        if not wechat_window:
+            _safe_print("[主程序] ⚠️ 未检测到微信窗口，请确保微信已登录并打开")
+            _safe_print("[主程序] 程序将继续运行，等待微信启动...")
+        else:
+            _safe_print("[主程序] ✅ 微信客户端已检测到")
+
+        _safe_print()
+        _safe_print("[主程序] 🟢 开始运行... (按 Ctrl+C 停止)")
+        _safe_print()
 
     # 运行统计
     reply_count = 0
@@ -281,12 +408,52 @@ def main():
     last_status_time = 0
 
     # 主循环
-    while _running:
+    while True:
+        # Web 模式下通过 web.app.is_running() 检查运行状态（支持 Web 面板控制）
+        if args.web_admin:
+            try:
+                from web.app import is_running as web_is_running
+                web_running = web_is_running()
+                if not web_running:
+                    time.sleep(1)
+                    continue
+            except Exception as e:
+                _safe_print(f"[主程序] ⚠️ is_running() 异常: {e}")
+                if not _running:
+                    time.sleep(1)
+                    continue
+        else:
+            if not _running:
+                time.sleep(1)
+                continue
         try:
-            # 执行自动回复检查
-            count = process_auto_reply(config)
+            _safe_print(f"[主程序] 🔄 开始检测... (total_checks={total_checks})")
+            # 获取选中的联系人（Web 模式下只检测用户勾选的联系人）
+            selected = None
+            if args.web_admin:
+                try:
+                    from web.app import get_selected_contacts
+                    sel_dict = get_selected_contacts()
+                    if sel_dict:
+                        # 只取值为 True 的联系人名称
+                        selected = {name for name, enabled in sel_dict.items() if enabled}
+                    _safe_print(f"[主程序] 📋 选中联系人: {selected}")
+                except Exception as e:
+                    _safe_print(f"[主程序] ⚠️ get_selected_contacts 异常: {e}")
+
+            # 执行自动回复检查（只处理选中的联系人）
+            count = process_auto_reply(config, selected)
             reply_count += count
             total_checks += 1
+            _safe_print(f"[主程序] ✅ 检测完成, count={count}, total_checks={total_checks}")
+
+            # 更新 Web 面板统计
+            if args.web_admin:
+                try:
+                    from web.app import update_stats
+                    update_stats(reply_count, total_checks)
+                except Exception as e:
+                    _safe_print(f"[主程序] ⚠️ update_stats 异常: {e}")
 
             # 每秒更新一次状态显示
             current_time = time.time()
@@ -300,26 +467,26 @@ def main():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(f"\n[主程序] ⚠️ 运行异常: {e}")
+            _safe_print(f"\n[主程序] ⚠️ 运行异常: {e}")
             time.sleep(5)  # 异常时等待 5 秒后重试
             continue
 
     # 退出统计
-    print("\n")
-    print("═" * 50)
-    print("[主程序] 📊 运行统计")
-    print(f"  总检查次数: {total_checks}")
-    print(f"  总回复次数: {reply_count}")
+    _safe_print("\n")
+    _safe_print("═" * 50)
+    _safe_print("[主程序] 📊 运行统计")
+    _safe_print(f"  总检查次数: {total_checks}")
+    _safe_print(f"  总回复次数: {reply_count}")
     contact_display = []
     for c in config.contacts:
         if c.relation:
             contact_display.append(f"{c.name}({c.relation})")
         else:
             contact_display.append(c.name)
-    print(f"  监控联系人: {', '.join(contact_display)}")
+    _safe_print(f"  监控联系人: {', '.join(contact_display)}")
     if _llm_client:
-        print(f"  大模型状态: {_llm_client.get_status_string()}")
-    print("[主程序] 👋 已退出")
+        _safe_print(f"  大模型状态: {_llm_client.get_status_string()}")
+    _safe_print("[主程序] 👋 已退出")
 
 
 if __name__ == "__main__":

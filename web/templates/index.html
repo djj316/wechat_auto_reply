@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Amadeus - 管理终端</title>
+<style>
+:root{--bg-primary:#0a0a0f;--bg-secondary:#111118;--bg-card:#16161f;--bg-hover:#1e1e2a;--bg-input:#0d0d14;--border-color:#2a2a3a;--border-active:#c62828;--text-primary:#e0e0e0;--text-secondary:#8888a0;--text-muted:#555568;--accent-red:#c62828;--accent-red-hover:#e53935;--accent-red-glow:rgba(198,40,40,0.3);--accent-cyan:#00bcd4;--accent-green:#4caf50;--accent-yellow:#ffc107;--font-mono:Consolas,monospace;--font-sans:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;--sidebar-width:220px;--header-height:56px;--radius:6px;--shadow:0 2px 12px rgba(0,0,0,0.4)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-primary);line-height:1.6;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg-secondary)}
+::-webkit-scrollbar-thumb{background:var(--border-color);border-radius:3px}
+.crt-overlay{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.03)0px,rgba(0,0,0,0.03)1px,transparent 1px,transparent 3px)}
+.crt-overlay::after{content:"";position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,0.3)100%)}
+.app-container{display:flex;height:100vh;position:relative}
+.sidebar{width:var(--sidebar-width);background:var(--bg-secondary);border-right:1px solid var(--border-color);display:flex;flex-direction:column;flex-shrink:0;z-index:10}
+.sidebar-header{padding:16px 18px;border-bottom:1px solid var(--border-color);text-align:center}
+.sidebar-header .logo{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent-red);letter-spacing:4px;text-shadow:0 0 20px var(--accent-red-glow)}
+.sidebar-header .subtitle{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;letter-spacing:2px}
+.sidebar-header .version{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:4px}
+.sidebar-nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;padding:10px 18px;cursor:pointer;color:var(--text-secondary);font-size:13px;transition:all 0.2s;border-left:3px solid transparent;gap:10px;user-select:none}
+.nav-item:hover{background:var(--bg-hover);color:var(--text-primary)}
+.nav-item.active{background:rgba(198,40,40,0.1);color:var(--accent-red);border-left-color:var(--accent-red)}
+.nav-item .icon{width:20px;text-align:center;font-size:15px}
+.nav-item .badge{margin-left:auto;background:var(--accent-red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-family:var(--font-mono)}
+.sidebar-footer{padding:12px 18px;border-top:1px solid var(--border-color);font-size:11px;color:var(--text-muted);font-family:var(--font-mono)}
+.sidebar-footer .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.sidebar-footer .status-dot.online{background:var(--accent-green);box-shadow:0 0 6px rgba(76,175,80,0.5)}
+.sidebar-footer .status-dot.offline{background:var(--text-muted)}
+.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.page-container{flex:1;overflow-y:auto;padding:20px 24px;position:relative}
+.page{visibility:hidden;position:absolute;top:0;left:0;right:0;height:0;overflow:hidden;animation:fadeIn 0.3s ease}
+.page.active{visibility:visible;position:relative;height:auto;overflow:visible}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px}
+.card-title .accent{color:var(--accent-red)}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;font-family:var(--font-mono)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:var(--font-mono);outline:none;transition:border-color 0.2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent-red);box-shadow:0 0 8px var(--accent-red-glow)}
+.form-group input[type="checkbox"]{width:auto;margin-right:6px;accent-color:var(--accent-red)}
+.form-group textarea{resize:vertical;min-height:60px;font-size:12px}
+.form-row{display:flex;gap:12px;flex-wrap:wrap}
+.form-row .form-group{flex:1;min-width:140px}
+.form-row-3{display:flex;gap:12px}
+.form-row-3 .form-group{flex:1}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border:1px solid var(--border-color);border-radius:var(--radius);background:var(--bg-hover);color:var(--text-primary);font-size:12px;font-family:var(--font-mono);cursor:pointer;transition:all 0.2s;user-select:none}
+.btn:hover{background:var(--border-color);border-color:var(--text-muted)}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:var(--accent-red);border-color:var(--accent-red);color:#fff}
+.btn-primary:hover{background:var(--accent-red-hover);border-color:var(--accent-red-hover)}
+.btn-success{background:var(--accent-green);border-color:var(--accent-green);color:#fff}
+.btn-danger{background:transparent;border-color:var(--accent-red);color:var(--accent-red)}
+.btn-danger:hover{background:var(--accent-red);color:#fff}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.status-item{background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);padding:12px 14px}
+.status-item .label{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px}
+.status-item .value{font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary)}
+.status-item .value.green{color:var(--accent-green)}
+.status-item .value.red{color:var(--accent-red)}
+.status-item .value.yellow{color:var(--accent-yellow)}
+.log-container{background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);padding:10px;max-height:400px;overflow-y:auto;font-family:var(--font-mono);font-size:11px;line-height:1.5}
+.log-container .log-entry{padding:4px 6px;border-bottom:1px solid rgba(42,42,58,0.5);color:var(--text-secondary)}
+.log-container .log-entry:last-child{border-bottom:none}
+.log-container .log-entry .time{color:var(--text-muted);margin-right:8px}
+.log-container .log-entry .level{display:inline-block;padding:0 4px;border-radius:2px;font-size:10px;margin-right:6px;font-weight:600}
+.log-container .log-entry .level.info{color:var(--accent-cyan)}
+.log-container .log-entry .level.success{color:var(--accent-green)}
+.log-container .log-entry .level.warn{color:var(--accent-yellow)}
+.log-container .log-entry .level.error{color:var(--accent-red)}
+.chat-box{background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);padding:12px;max-height:300px;overflow-y:auto;margin-bottom:10px;font-size:13px}
+.chat-box .msg{margin-bottom:8px;padding:8px 10px;border-radius:var(--radius);max-width:85%}
+.chat-box .msg.user{background:rgba(198,40,40,0.15);border:1px solid rgba(198,40,40,0.3);margin-left:auto}
+.chat-box .msg.assistant{background:var(--bg-card);border:1px solid var(--border-color)}
+.chat-box .msg .sender{font-size:10px;color:var(--text-muted);margin-bottom:2px;font-family:var(--font-mono)}
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row input{flex:1;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-size:13px;outline:none;font-family:var(--font-mono)}
+.chat-input-row input:focus{border-color:var(--accent-red)}
+.live2d-container{position:relative;width:100%;height:350px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);overflow:hidden}
+.live2d-container canvas{width:100%;height:100%}
+.live2d-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);gap:12px}
+.live2d-placeholder .icon{font-size:48px;opacity:0.3}
+.live2d-placeholder p{font-size:13px}
+.contact-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);margin-bottom:8px}
+.contact-item .name{font-size:13px;font-weight:600;color:var(--text-primary)}
+.contact-item .sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.contact-item .actions{display:flex;gap:6px}
+.contact-item .checkbox-wrap{display:flex;align-items:center;gap:8px;flex:1;min-width:0;cursor:pointer}
+.contact-item .checkbox-wrap input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent-red);cursor:pointer;flex-shrink:0}
+.contact-item .checkbox-wrap .contact-info{flex:1;min-width:0}
+.contact-item .checkbox-wrap .contact-info .name{font-size:13px;font-weight:600;color:var(--text-primary)}
+.contact-item .checkbox-wrap .contact-info .sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.contact-item.selected{background:rgba(198,40,40,0.08);border-color:rgba(198,40,40,0.3)}
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease}
+.modal{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:24px;width:400px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.modal-title{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:16px;font-family:var(--font-mono)}
+.toast-container{position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;border-radius:var(--radius);font-size:13px;font-family:var(--font-mono);animation:slideIn 0.3s ease;max-width:360px;box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.toast.info{background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary)}
+.toast.success{background:rgba(76,175,80,0.2);border:1px solid var(--accent-green);color:var(--accent-green)}
+.toast.error{background:rgba(198,40,40,0.2);border:1px solid var(--accent-red);color:var(--accent-red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.empty-state{text-align:center;padding:30px 20px;color:var(--text-muted)}
+.empty-state p{font-size:13px;margin-bottom:6px}
+.toggle-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle{position:relative;width:36px;height:20px;background:var(--border-color);border-radius:10px;transition:background 0.3s;flex-shrink:0}
+.toggle.active{background:var(--accent-red)}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform 0.3s}
+.toggle.active::after{transform:translateX(16px)}
+.ascii-art{font-family:var(--font-mono);font-size:10px;line-height:1.1;color:var(--accent-red);white-space:pre;text-shadow:0 0 10px var(--accent-red-glow);margin-bottom:8px;text-align:center}
+@media(max-width:768px){.sidebar{width:56px}.sidebar-header .logo{font-size:16px;letter-spacing:0}.sidebar-header .subtitle,.sidebar-header .version,.nav-item .label,.sidebar-footer{display:none}.nav-item{padding:10px;justify-content:center}.nav-item .icon{width:auto}.status-grid{grid-template-columns:repeat(2,1fr)}.form-row,.form-row-3{flex-direction:column}.page-container{padding:12px}.topbar{padding:0 12px}.topbar .page-title{font-size:14px}}
+.loading{display:inline-block;width:16px;height:16px;border:2px solid var(--border-color);border-top-color:var(--accent-red);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Mood Selector */
+.mood-selector{display:flex;gap:4px;flex-wrap:wrap}
+.mood-selector .mood-btn{padding:3px 8px;font-size:11px;border:1px solid var(--border-color);border-radius:12px;background:transparent;color:var(--text-secondary);cursor:pointer;transition:all 0.2s;font-family:var(--font-mono)}
+.mood-selector .mood-btn:hover{border-color:var(--accent-red);color:var(--accent-red);background:rgba(198,40,40,0.1)}
+.mood-selector .mood-btn.active{background:var(--accent-red);border-color:var(--accent-red);color:#fff}
+/* Live2D Layout - side by side */
+.live2d-layout{display:flex;gap:16px;height:100%}
+.live2d-layout-left{flex:0 0 auto;width:55%;display:flex;flex-direction:column;gap:16px}
+.live2d-layout-right{flex:1;display:flex;min-width:0}
+.live2d-layout-right .card{height:100%}
+/* Chat area in Live2D page */
+.l2d-chat-box{background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);padding:10px;flex:1;overflow-y:auto;margin-bottom:8px;font-size:13px;min-height:0}
+.l2d-chat-box .msg{margin-bottom:6px;padding:6px 10px;border-radius:var(--radius);max-width:85%}
+.l2d-chat-box .msg.user{background:rgba(198,40,40,0.15);border:1px solid rgba(198,40,40,0.3);margin-left:auto}
+.l2d-chat-box .msg.assistant{background:var(--bg-card);border:1px solid var(--border-color)}
+.l2d-chat-box .msg .sender{font-size:10px;color:var(--text-muted);margin-bottom:2px;font-family:var(--font-mono)}
+.l2d-chat-input-row{display:flex;gap:6px}
+.l2d-chat-input-row input{flex:1;padding:7px 10px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-size:13px;outline:none;font-family:var(--font-mono)}
+.l2d-chat-input-row input:focus{border-color:var(--accent-red)}
+.typing-cursor{animation:blink 0.6s step-end infinite;color:var(--accent-red);font-weight:700}
+@keyframes blink{50%{opacity:0}}
+</style>
+<!-- Live2D Libraries (CDN) -->
+<script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.2/dist/browser/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+</head>
+<body>
+<div class="crt-overlay"></div>
+<div class="toast-container" id="toastContainer"></div>
+<div class="app-container">
+
+<aside class="sidebar">
+<div class="sidebar-header">
+<div class="logo">AMADEUS</div>
+<div class="subtitle">MANAGEMENT TERMINAL</div>
+<!-- <div class="version">v2.0.0</div> -->
+</div>
+<nav class="sidebar-nav">
+<div class="nav-item active" data-page="live2d"><span class="label">Amadeus</span></div>
+<div class="nav-item" data-page="dashboard"><span class="label">仪表盘</span></div>
+<div class="nav-item" data-page="config"><span class="label">系统配置</span></div>
+<div class="nav-item" data-page="contacts"><span class="label">联系人</span></div>
+<div class="nav-item" data-page="voice"><span class="label">语音助手</span></div>
+<div class="nav-item" data-page="logs"><span class="label">运行日志</span></div>
+</nav>
+<div class="sidebar-footer">
+<span class="status-dot offline" id="sidebarStatusDot"></span>
+<span id="sidebarStatusText">未连接</span>
+</div>
+</aside>
+
+<main class="main-content">
+<div class="page-container">
+
+<div id="page-dashboard" class="page">
+<div class="ascii-art">
+  ___    __    __  __  ____  _____  _   _  ____  _____  ___
+ / _ \  / _\  |  \/  ||  _||_   _|| | | |/ ___|| ____|/ _ \
+| | | | \ \   | |\/| || |_   | |  | | | |\___ \|  _| | | | |
+| |_| | _\ \  | |  | ||  _|  | |  | |_| | ___) | |___| |_| |
+ \___/  \__/  |_|  |_||_|    |_|   \___/ |____/|_____|\___/
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">📊</span> 系统状态</div>
+<div class="status-grid" id="statusGrid">
+<div class="status-item"><div class="label">运行状态</div><div class="value red" id="s-running">已停止</div></div>
+<div class="status-item"><div class="label">运行时长</div><div class="value" id="s-uptime">—</div></div>
+<div class="status-item"><div class="label">回复次数</div><div class="value" id="s-replyCount">0</div></div>
+<div class="status-item"><div class="label">检测次数</div><div class="value" id="s-checkCount">0</div></div>
+<div class="status-item"><div class="label">联系人数量</div><div class="value" id="s-contactCount">0</div></div>
+<div class="status-item"><div class="label">LLM 状态</div><div class="value" id="s-llmStatus">未启用</div></div>
+<div class="status-item"><div class="label">时间范围</div><div class="value" id="s-timeRange">—</div></div>
+<div class="status-item"><div class="label">当前时间</div><div class="value" id="s-currentTime">—</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">🎮</span> 控制面板</div>
+<div class="btn-group">
+<button class="btn btn-success" id="btnStart" onclick="controlAction('start')">▶ 启动</button>
+<button class="btn btn-danger" id="btnStop" onclick="controlAction('stop')" disabled>■ 停止</button>
+<button class="btn" onclick="controlAction('restart')">⟳ 重置追踪</button>
+</div>
+</div>
+</div>
+
+<div id="page-config" class="page">
+<div class="card">
+<div class="card-title"><span class="accent">⏱</span> 时间范围</div>
+<div id="timeRangeContainer"></div>
+<div class="btn-group" style="margin-top:8px">
+<button class="btn btn-sm" onclick="addTimeRange()">+ 添加时间段</button>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">💬</span> 回复设置</div>
+<div class="form-group">
+<label>默认回复消息（非 LLM 模式）</label>
+<textarea id="cfgReplyMessage" rows="2"></textarea>
+</div>
+<div class="form-group">
+<label>Sticker/GIF 路径</label>
+<input type="text" id="cfgStickerPath" placeholder="如: stickers/kurisu.jpg">
+</div>
+<div class="form-group">
+<label>日志文件路径</label>
+<input type="text" id="cfgLogFile" placeholder="reply_log.txt">
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">🧠</span> LLM 配置</div>
+<div class="form-group">
+<label>启用 LLM</label>
+<div class="toggle-wrap" onclick="toggleSwitch('cfgLlmEnabled')">
+<div class="toggle" id="cfgLlmEnabled"></div>
+<span id="cfgLlmEnabledLabel" style="font-size:13px">关闭</span>
+</div>
+</div>
+<div id="llmFields">
+<div class="form-row">
+<div class="form-group">
+<label>提供商</label>
+<select id="cfgProvider" onchange="onProviderChange()"></select>
+</div>
+<div class="form-group">
+<label>模型名称</label>
+<input type="text" id="cfgModel" placeholder="如: qwen-plus">
+</div>
+</div>
+<div class="form-group">
+<label>API Key（留空使用 .env 中的值）</label>
+<input type="password" id="cfgApiKey" placeholder="sk-...">
+</div>
+<div class="form-row-3">
+<div class="form-group">
+<label>温度 (temperature)</label>
+<input type="number" id="cfgTemperature" step="0.1" min="0" max="2" placeholder="0.8">
+</div>
+<div class="form-group">
+<label>最大 Token</label>
+<input type="number" id="cfgMaxTokens" step="1" min="1" placeholder="2048">
+</div>
+<div class="form-group">
+<label>Top P</label>
+<input type="number" id="cfgTopP" step="0.05" min="0" max="1" placeholder="0.9">
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label>API Base URL（可选，覆盖默认）</label>
+<input type="text" id="cfgApiBase" placeholder="https://api.example.com/v1">
+</div>
+<div class="form-group">
+<label>角色名称</label>
+<select id="cfgCharacter"></select>
+</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="btn-group">
+<button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+</div>
+</div>
+</div>
+
+<div id="page-contacts" class="page">
+<div class="card">
+<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+<span><span class="accent">👥</span> 联系人列表</span>
+<div class="btn-group">
+<button class="btn btn-sm" onclick="showAddContactModal()">&#x2795; 添加</button>
+<button class="btn btn-sm" onclick="selectAllContacts(true)">&#x2611; 全选</button>
+<button class="btn btn-sm" onclick="selectAllContacts(false)">&#x2b1c; 取消全选</button>
+<button class="btn btn-sm" onclick="loadContacts()">&#x27f3; 刷新</button>
+</div>
+</div>
+<div id="contactsContainer"><div class="empty-state"><p>暂无联系人</p></div></div>
+</div>
+</div>
+
+<!-- 添加联系人模态框 -->
+<div id="addContactModal" class="modal-overlay" style="display:none" onclick="closeAddContactModal(event)">
+<div class="modal" onclick="event.stopPropagation()">
+<div class="modal-title"><span class="accent">&#x2795;</span> 添加联系人</div>
+<div class="form-group">
+<label>联系人名称 <span style="color:var(--accent-red)">*</span></label>
+<input type="text" id="newContactName" placeholder="如: 何璇" onkeydown="if(event.key==='Enter') saveNewContact()">
+</div>
+<div class="form-group">
+<label>备注</label>
+<input type="text" id="newContactRemark" placeholder="微信备注名（可选）">
+</div>
+<div class="form-group">
+<label>关系</label>
+<input type="text" id="newContactRelation" placeholder="如: 朋友、同事（可选）">
+</div>
+<div class="form-group">
+<label>WxID</label>
+<input type="text" id="newContactWxid" placeholder="微信 ID（可选）">
+</div>
+<div class="btn-group" style="margin-top:12px;justify-content:flex-end">
+<button class="btn" onclick="closeAddContactModal()">取消</button>
+<button class="btn btn-primary" onclick="saveNewContact()">&#x2705; 保存</button>
+</div>
+</div>
+</div>
+
+<div id="page-live2d" class="page active">
+<div class="live2d-layout">
+<div class="live2d-layout-left">
+<div class="card">
+<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+<span><span class="accent">🎭</span> Amadeus</span>
+<div class="btn-group">
+<button class="btn btn-sm" id="l2dLoadBtn" onclick="initLive2D()">🔄 加载模型</button>
+<button class="btn btn-sm" id="l2dEyeTrackingBtn" onclick="toggleEyeTracking()" title="切换眼球追踪">👀 追踪: 开</button>
+</div>
+</div>
+<div class="live2d-container" id="live2dContainer">
+<canvas id="live2d-canvas"></canvas>
+<div class="live2d-placeholder" id="l2dPlaceholder">
+<div class="icon">🎭</div>
+<p>点击「加载模型」按钮加载 Kurisu</p>
+<p style="font-size:11px;color:var(--text-muted)">点击模型会有惊喜反应 ✨</p>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">🎭</span> 表情选择</div>
+<div class="mood-selector" id="moodSelector">
+<button class="mood-btn active" data-mood="neutral" onclick="l2dSetMood('neutral')">😐 平静</button>
+<button class="mood-btn" data-mood="happy" onclick="l2dSetMood('happy')">😊 开心</button>
+<button class="mood-btn" data-mood="blush" onclick="l2dSetMood('blush')">😳 害羞</button>
+<button class="mood-btn" data-mood="think" onclick="l2dSetMood('think')">🤔 思考</button>
+<button class="mood-btn" data-mood="surprise" onclick="l2dSetMood('surprise')">😮 惊讶</button>
+<button class="mood-btn" data-mood="angry" onclick="l2dSetMood('angry')">😠 生气</button>
+<button class="mood-btn" data-mood="sad" onclick="l2dSetMood('sad')">😢 悲伤</button>
+<button class="mood-btn" data-mood="sleepy" onclick="l2dSetMood('sleepy')">😴 困倦</button>
+<button class="mood-btn" data-mood="excited" onclick="l2dSetMood('excited')">🥰 兴奋</button>
+<button class="mood-btn" data-mood="tsundere" onclick="l2dSetMood('tsundere')">😤 傲娇</button>
+</div>
+</div>
+</div>
+<div class="live2d-layout-right">
+<div class="card" style="display:flex;flex-direction:column;height:100%">
+<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+<span><span class="accent">💬</span> 对话 Amadeus</span>
+<button class="btn btn-sm" onclick="l2dResetChat()">↺ 重置对话</button>
+</div>
+<div class="l2d-chat-box" id="l2dChatBox" style="flex:1;max-height:none">
+<div class="empty-state"><p>输入消息开始对话 ✨</p></div>
+</div>
+<div class="l2d-chat-input-row" style="flex-shrink:0">
+<input type="text" id="l2dChatInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')l2dSendMessage()">
+<button class="btn btn-primary" onclick="l2dSendMessage()">发送</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="page-voice" class="page">
+<div class="card">
+<div class="card-title"><span class="accent">🎤</span> 语音助手</div>
+<div class="live2d-placeholder" style="height:200px">
+<div class="icon">🎤</div>
+<p><span style="color:var(--accent-red);font-family:var(--font-mono)">Amadeus Voice System</span></p>
+<p>语音功能开发中，敬请期待。</p>
+<p style="font-size:11px;color:var(--text-muted)">计划支持: 语音唤醒 · 语音识别 (Whisper) · 语音合成 (Edge TTS)</p>
+</div>
+</div>
+<div class="card">
+<div class="card-title"><span class="accent">📋</span> 状态信息</div>
+<div class="status-grid">
+<div class="status-item"><div class="label">语音引擎</div><div class="value" style="font-size:14px">未就绪</div></div>
+<div class="status-item"><div class="label">识别引擎</div><div class="value" style="font-size:14px">未就绪</div></div>
+<div class="status-item"><div class="label">合成引擎</div><div class="value" style="font-size:14px">未就绪</div></div>
+</div>
+</div>
+</div>
+
+<div id="page-logs" class="page">
+<div class="card">
+<div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+<span><span class="accent">📋</span> 运行日志</span>
+<div class="btn-group">
+<button class="btn btn-sm" onclick="refreshLogs()">⟳ 刷新</button>
+<button class="btn btn-sm" onclick="clearLogs()">🗑 清空</button>
+</div>
+</div>
+<div class="log-container" id="logContainer"><div class="empty-state"><p>暂无日志</p></div></div>
+</div>
+</div>
+
+</div>
+</main>
+</div>
+<script>
+const API_BASE = '';
+let statusInterval = null;
+let clockInterval = null;
+let currentPage = 'live2d';
+
+document.querySelectorAll('.nav-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+        switchPage(this.getAttribute('data-page'));
+    });
+});
+
+function switchPage(page) {
+    currentPage = page;
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('.nav-item[data-page="'+page+'"]').classList.add('active');
+    document.getElementById('page-'+page).classList.add('active');
+    if (page === 'logs') refreshLogs();
+    if (page === 'live2d') checkLive2D();
+    if (page === 'contacts') loadContacts();
+}
+
+function showToast(msg, type) {
+    type = type || 'info';
+    var t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.textContent = msg;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(function() { t.remove(); }, 3000);
+}
+
+async function apiGet(url) {
+    var r = await fetch(API_BASE + url);
+    return await r.json();
+}
+async function apiPost(url, data) {
+    var r = await fetch(API_BASE + url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})});
+    return await r.json();
+}
+async function apiPut(url, data) {
+    var r = await fetch(API_BASE + url, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})});
+    return await r.json();
+}
+
+// ============================================================
+// 仪表盘
+// ============================================================
+async function refreshStatus() {
+    try {
+        var data = await apiGet('/api/status');
+        if (!data.success) return;
+        document.getElementById('s-running').textContent = data.running ? '运行中' : '已停止';
+        document.getElementById('s-running').className = 'value ' + (data.running ? 'green' : 'red');
+        document.getElementById('s-uptime').textContent = data.uptime || '—';
+        document.getElementById('s-replyCount').textContent = data.reply_count || 0;
+        document.getElementById('s-checkCount').textContent = data.total_checks || 0;
+        document.getElementById('s-contactCount').textContent = data.contact_count || 0;
+        document.getElementById('s-llmStatus').textContent = data.llm_ready ? '就绪' : (data.llm_enabled ? '未就绪' : '未启用');
+        document.getElementById('s-llmStatus').className = 'value ' + (data.llm_ready ? 'green' : (data.llm_enabled ? 'yellow' : ''));
+        document.getElementById('s-timeRange').textContent = data.in_time_range ? '时间段内' : '时间段外';
+        document.getElementById('s-currentTime').textContent = data.current_time || '—';
+        document.getElementById('btnStart').disabled = data.running;
+        document.getElementById('btnStop').disabled = !data.running;
+        var dot = document.getElementById('sidebarStatusDot');
+        var txt = document.getElementById('sidebarStatusText');
+        if (data.running) {
+            dot.className = 'status-dot online';
+            txt.textContent = '运行中';
+        } else {
+            dot.className = 'status-dot offline';
+            txt.textContent = '已停止';
+        }
+    } catch(e) {
+        console.error('Status refresh failed:', e);
+    }
+}
+
+async function controlAction(action) {
+    try {
+        var data = await apiPost('/api/control/' + action);
+        showToast(data.message || action, data.success ? 'success' : 'error');
+        if (data.success) refreshStatus();
+    } catch(e) {
+        showToast('操作失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// 系统配置
+// ============================================================
+async function loadConfig() {
+    try {
+        var data = await apiGet('/api/config');
+        if (!data.success) { showToast('加载配置失败', 'error'); return; }
+        var cfg = data.config;
+        document.getElementById('cfgReplyMessage').value = cfg.reply_message || '';
+        document.getElementById('cfgStickerPath').value = cfg.sticker_path || '';
+        document.getElementById('cfgLogFile').value = cfg.log_file || '';
+
+        var llm = cfg.llm || {};
+        var enabled = llm.enabled || false;
+        var toggle = document.getElementById('cfgLlmEnabled');
+        var label = document.getElementById('cfgLlmEnabledLabel');
+        if (enabled) { toggle.classList.add('active'); label.textContent = '开启'; }
+        else { toggle.classList.remove('active'); label.textContent = '关闭'; }
+        document.getElementById('cfgProvider').value = llm.provider || '';
+        document.getElementById('cfgModel').value = llm.model || '';
+        document.getElementById('cfgApiKey').value = llm.api_key || '';
+        document.getElementById('cfgTemperature').value = llm.temperature || '';
+        document.getElementById('cfgMaxTokens').value = llm.max_tokens || '';
+        document.getElementById('cfgTopP').value = llm.top_p || '';
+        document.getElementById('cfgApiBase').value = llm.api_base || '';
+        document.getElementById('cfgCharacter').value = llm.character || 'kurisu';
+
+        // Time ranges
+        var tc = document.getElementById('timeRangeContainer');
+        tc.innerHTML = '';
+        var ranges = cfg.time_ranges || [];
+        if (ranges.length === 0) {
+            tc.innerHTML = '<div class="empty-state"><p>暂无时间范围配置</p></div>';
+        } else {
+            ranges.forEach(function(r, i) {
+                var d = document.createElement('div');
+                d.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+                d.innerHTML = '<input type="time" class="tr-start" value="'+r.start+'" style="flex:1;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-mono)">'
+                    + '<span style="color:var(--text-muted)">至</span>'
+                    + '<input type="time" class="tr-end" value="'+r.end+'" style="flex:1;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-mono)">'
+                    + '<button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">✕</button>';
+                tc.appendChild(d);
+            });
+        }
+
+        // Providers
+        if (data.providers) {
+            var sel = document.getElementById('cfgProvider');
+            sel.innerHTML = '';
+            data.providers.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                sel.appendChild(opt);
+            });
+            sel.value = llm.provider || '';
+        }
+
+        // Characters
+        if (data.characters) {
+            var csel = document.getElementById('cfgCharacter');
+            csel.innerHTML = '';
+            data.characters.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                csel.appendChild(opt);
+            });
+            csel.value = llm.character || 'kurisu';
+        }
+
+        onProviderChange();
+    } catch(e) {
+        showToast('加载配置失败: ' + e.message, 'error');
+    }
+}
+
+function addTimeRange() {
+    var tc = document.getElementById('timeRangeContainer');
+    var empty = tc.querySelector('.empty-state');
+    if (empty) tc.innerHTML = '';
+    var d = document.createElement('div');
+    d.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+    d.innerHTML = '<input type="time" class="tr-start" value="09:00" style="flex:1;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-mono)">'
+        + '<span style="color:var(--text-muted)">至</span>'
+        + '<input type="time" class="tr-end" value="23:00" style="flex:1;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-mono)">'
+        + '<button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">✕</button>';
+    tc.appendChild(d);
+}
+
+function onProviderChange() {
+    var sel = document.getElementById('cfgProvider');
+    var opt = sel.options[sel.selectedIndex];
+    var modelHint = opt ? (opt.getAttribute('data-model') || '') : '';
+    if (modelHint && !document.getElementById('cfgModel').value) {
+        document.getElementById('cfgModel').placeholder = '如: ' + modelHint;
+    }
+}
+
+async function saveConfig() {
+    try {
+        var timeRanges = [];
+        document.querySelectorAll('#timeRangeContainer > div').forEach(function(d) {
+            var s = d.querySelector('.tr-start');
+            var e = d.querySelector('.tr-end');
+            if (s && e) timeRanges.push({start: s.value, end: e.value});
+        });
+
+        var payload = {
+            reply_message: document.getElementById('cfgReplyMessage').value,
+            sticker_path: document.getElementById('cfgStickerPath').value,
+            log_file: document.getElementById('cfgLogFile').value,
+            time_ranges: timeRanges,
+            llm: {
+                enabled: document.getElementById('cfgLlmEnabled').classList.contains('active'),
+                provider: document.getElementById('cfgProvider').value,
+                model: document.getElementById('cfgModel').value,
+                api_key: document.getElementById('cfgApiKey').value,
+                temperature: parseFloat(document.getElementById('cfgTemperature').value) || undefined,
+                max_tokens: parseInt(document.getElementById('cfgMaxTokens').value) || undefined,
+                top_p: parseFloat(document.getElementById('cfgTopP').value) || undefined,
+                api_base: document.getElementById('cfgApiBase').value || undefined,
+                character: document.getElementById('cfgCharacter').value
+            }
+        };
+
+        var data = await apiPut('/api/config', payload);
+        showToast(data.message || '配置已保存', data.success ? 'success' : 'error');
+        if (data.success) refreshStatus();
+    } catch(e) {
+        showToast('保存失败: ' + e.message, 'error');
+    }
+}
+
+function toggleSwitch(id) {
+    var el = document.getElementById(id);
+    var label = document.getElementById(id + 'Label');
+    el.classList.toggle('active');
+    label.textContent = el.classList.contains('active') ? '开启' : '关闭';
+}
+
+// ============================================================
+// Live2D
+// ============================================================
+async function checkLive2D() {
+    try {
+        var data = await apiGet('/api/live2d/status');
+        if (data.success) {
+            // 更新加载按钮状态
+            var btn = document.getElementById('l2dLoadBtn');
+            if (btn) btn.textContent = data.loaded ? '🔄 已加载' : '🔄 加载模型';
+        }
+    } catch(e) {
+        console.error('Live2D check failed:', e);
+    }
+}
+
+// ============================================================
+// 联系人
+// ============================================================
+// 联系人选中状态缓存
+var _contactSelection = {};
+
+async function loadContacts() {
+    try {
+        // 并行获取配置和选中状态
+        var [cfgData, selData] = await Promise.all([
+            apiGet('/api/config'),
+            apiGet('/api/contacts/selection')
+        ]);
+        if (!cfgData.success) return;
+        var contacts = cfgData.config.contacts || [];
+        if (selData.success) {
+            _contactSelection = selData.selected || {};
+        }
+        var container = document.getElementById('contactsContainer');
+        if (contacts.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>暂无联系人配置</p></div>';
+            return;
+        }
+        var html = '';
+        contacts.forEach(function(c) {
+            var name = c.name || '未知';
+            var remark = c.remark || '';
+            var wxid = c.wxid || '';
+            var hasPer = c.personalization && Object.keys(c.personalization).length > 0;
+            var checked = _contactSelection[name] === true;
+            html += '<div class="contact-item' + (checked ? ' selected' : '') + '">'
+                + '<label class="checkbox-wrap" onclick="event.stopPropagation()">'
+                + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleContact(\'' + name.replace(/'/g, "\\'") + '\', this.checked)">'
+                + '<div class="contact-info">'
+                + '<div class="name">' + name + '</div>'
+                + '<div class="sub">' + (remark || wxid || '') + (hasPer ? ' · 有个性化配置' : '') + '</div>'
+                + '</div>'
+                + '</label>'
+                + '<div class="actions">'
+                + '<span class="btn btn-sm btn-danger" onclick="deleteContact(\'' + name.replace(/'/g, "\\'") + '\')">&#x1f5d1; 删除</span>'
+                + '</div></div>';
+        });
+        container.innerHTML = html;
+    } catch(e) {
+        console.error('Load contacts failed:', e);
+    }
+}
+
+async function toggleContact(name, checked) {
+    _contactSelection[name] = checked;
+    try {
+        await apiPost('/api/contacts/selection', { selected: _contactSelection });
+        // 更新视觉样式
+        var items = document.querySelectorAll('#contactsContainer .contact-item');
+        items.forEach(function(item) {
+            var cb = item.querySelector('input[type="checkbox"]');
+            if (cb) {
+                item.classList.toggle('selected', cb.checked);
+            }
+        });
+    } catch(e) {
+        console.error('Toggle contact failed:', e);
+        showToast('保存选中状态失败', 'error');
+    }
+}
+
+async function selectAllContacts(select) {
+    try {
+        var data = await apiGet('/api/config');
+        if (!data.success) return;
+        var contacts = data.config.contacts || [];
+        var newSel = {};
+        contacts.forEach(function(c) {
+            var name = c.name || '未知';
+            newSel[name] = select;
+        });
+        _contactSelection = newSel;
+        await apiPost('/api/contacts/selection', { selected: newSel });
+        loadContacts();
+        showToast(select ? '已全选所有联系人' : '已取消全选', 'success');
+    } catch(e) {
+        console.error('Select all failed:', e);
+        showToast('操作失败', 'error');
+    }
+}
+
+// 添加联系人模态框
+function showAddContactModal() {
+    document.getElementById('newContactName').value = '';
+    document.getElementById('newContactRemark').value = '';
+    document.getElementById('newContactRelation').value = '';
+    document.getElementById('newContactWxid').value = '';
+    document.getElementById('addContactModal').style.display = 'flex';
+    setTimeout(function() { document.getElementById('newContactName').focus(); }, 100);
+}
+
+function closeAddContactModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('addContactModal').style.display = 'none';
+}
+
+async function saveNewContact() {
+    var name = document.getElementById('newContactName').value.trim();
+    if (!name) {
+        showToast('请输入联系人名称', 'error');
+        document.getElementById('newContactName').focus();
+        return;
+    }
+    try {
+        // 获取当前配置
+        var data = await apiGet('/api/config');
+        if (!data.success) { showToast('获取配置失败', 'error'); return; }
+        var contacts = data.config.contacts || [];
+        // 检查是否已存在
+        if (contacts.some(function(c) { return c.name === name; })) {
+            showToast('联系人 "' + name + '" 已存在', 'error');
+            return;
+        }
+        var remark = document.getElementById('newContactRemark').value.trim();
+        var relation = document.getElementById('newContactRelation').value.trim();
+        var wxid = document.getElementById('newContactWxid').value.trim();
+        var newContact = { name: name };
+        if (relation) newContact.relation = relation;
+        if (remark) newContact.remark = remark;
+        if (wxid) newContact.wxid = wxid;
+        contacts.push(newContact);
+        // 保存配置
+        data.config.contacts = contacts;
+        var saveResult = await apiPut('/api/config', data.config);
+        if (saveResult.success) {
+            showToast('联系人 "' + name + '" 已添加', 'success');
+            closeAddContactModal();
+            loadContacts();
+        } else {
+            showToast(saveResult.error || '保存失败', 'error');
+        }
+    } catch(e) {
+        showToast('添加失败: ' + e.message, 'error');
+    }
+}
+
+async function deleteContact(name) {
+    if (!confirm('确定要删除联系人 "' + name + '" 吗？')) return;
+    try {
+        var data = await apiGet('/api/config');
+        if (!data.success) { showToast('获取配置失败', 'error'); return; }
+        var contacts = data.config.contacts || [];
+        var idx = -1;
+        for (var i = 0; i < contacts.length; i++) {
+            if (contacts[i].name === name) { idx = i; break; }
+        }
+        if (idx === -1) { showToast('联系人未找到', 'error'); return; }
+        contacts.splice(idx, 1);
+        data.config.contacts = contacts;
+        var saveResult = await apiPut('/api/config', data.config);
+        if (saveResult.success) {
+            // 同时清除选中状态
+            delete _contactSelection[name];
+            try { await apiPost('/api/contacts/selection', { selected: _contactSelection }); } catch(e) {}
+            showToast('联系人 "' + name + '" 已删除', 'success');
+            loadContacts();
+        } else {
+            showToast(saveResult.error || '保存失败', 'error');
+        }
+    } catch(e) {
+        showToast('删除失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// 运行日志
+// ============================================================
+async function refreshLogs() {
+    try {
+        var data = await apiGet('/api/logs');
+        var container = document.getElementById('logContainer');
+        if (!data.success || !data.logs || data.logs.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>暂无日志</p></div>';
+            return;
+        }
+        var html = '';
+        data.logs.forEach(function(line) {
+            var cls = 'info';
+            if (line.indexOf('成功') > -1 || line.indexOf('回复') > -1) cls = 'success';
+            else if (line.indexOf('错误') > -1 || line.indexOf('失败') > -1) cls = 'error';
+            else if (line.indexOf('警告') > -1) cls = 'warn';
+            var time = line.substring(0, 19) || '';
+            var content = line.substring(19) || line;
+            html += '<div class="log-entry"><span class="time">' + time + '</span><span class="level ' + cls + '">' + cls.toUpperCase() + '</span>' + content + '</div>';
+        });
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
+    } catch(e) {
+        console.error('Refresh logs failed:', e);
+    }
+}
+
+async function clearLogs() {
+    try {
+        var data = await apiPost('/api/logs/clear', {});
+        showToast(data.message || '日志已清空', data.success ? 'success' : 'error');
+        if (data.success) refreshLogs();
+    } catch(e) {
+        showToast('清空失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+refreshStatus();
+loadConfig();
+
+// Status polling
+statusInterval = setInterval(refreshStatus, 3000);
+
+// 默认页面为 Live2D，触发加载
+setTimeout(function() {
+    switchPage('live2d');
+}, 100);
+
+// ============================================================
+// Live2D v2.0 增强行为系统
+// ============================================================
+let l2dApp = null;
+let l2dModel = null;
+let l2dLoaded = false;
+let _l2dEyeTracking = true;
+let _l2dInteractCount = 0;
+let _l2dMood = 'neutral';
+let _l2dAutoTimer = null;
+let _l2dLastInteractTime = 0;
+let _l2dLastClickTime = 0;       // 双击检测用
+let _l2dClickSpamCount = 0;
+let _l2dClickSpamTimer = null;
+let _l2dIdleTimer = null;
+let _l2dWelcomeShown = false;
+let _l2dMotionQueue = [];
+let _l2dMotionPriority = 0;
+let _l2dIdleAnimTimer = null;
+let _l2dUserInteractFlag = false; // 用户交互标记，用于抑制自动行为
+let _l2dSuppressAutoTimer = null; // 抑制自动行为的定时器
+let _l2dIsSpeaking = false;      // 说话状态标记
+let _l2dSpeakTimer = null;       // 说话动画定时器
+let _l2dChatHistory = [];        // 对话历史
+
+// ============================================================
+// 工具函数
+// ============================================================
+function _l2dSetParam(id, value) {
+    if (!l2dModel) return;
+    try { l2dModel.internalModel.coreModel.setParameterValueById(id, value); } catch(e) {}
+}
+
+function _l2dGetParam(id) {
+    if (!l2dModel) return 0;
+    try { return l2dModel.internalModel.coreModel.getParameterValueById(id); } catch(e) { return 0; }
+}
+
+function _l2dSetPartOpacity(id, opacity) {
+    if (!l2dModel) return;
+    try {
+        var parts = l2dModel.internalModel.coreModel.getPartDataList();
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].id === id) { parts[i].opacity = opacity; break; }
+        }
+    } catch(e) {}
+}
+
+function _l2dResetParams() {
+    _l2dSetParam('ParamEyeROpen', 1);
+    _l2dSetParam('ParamEyeRSmile', 0);
+    _l2dSetParam('ParamMouthOpenY', 0);
+    _l2dSetParam('ParamMouthForm', 0);
+    _l2dSetParam('Param9', 0);
+    _l2dSetParam('Param8', 0);
+    _l2dSetParam('Param6', 0);
+    _l2dSetParam('ParamEyeBallX', 0);
+    _l2dSetParam('ParamEyeBallY', 0);
+    _l2dSetParam('Param3', 1);
+    _l2dSetParam('Param', 0);
+    _l2dSetParam('Param2', 0);
+    // 不重置 ParamBreath/Param4/Param5/Param7 — 由空闲动画持续驱动
+    // 注意: ParamAngleX/ParamAngleY 此模型不支持，已移除
+    // 重置 Parts 可见性
+    _l2dSetPartOpacity('blushing', 0);
+    _l2dSetPartOpacity('arm_think', 0);
+    _l2dSetPartOpacity('arms_iddle_anim', 1);
+}
+
+function _l2dUpdateMood(mood) {
+    _l2dMood = mood;
+    var el = document.getElementById('l2dMood');
+    if (el) {
+        var map = {neutral:'😐 平静',happy:'😊 开心',blush:'😳 害羞',think:'🤔 思考',surprise:'😮 惊讶',angry:'😠 生气',sad:'😢 悲伤',sleepy:'😴 困倦',excited:'🥰 兴奋',tsundere:'😤 傲娇'};
+        el.textContent = map[mood] || '😐 ' + mood;
+    }
+}
+
+function _l2dUpdateInteract() {
+    _l2dInteractCount++;
+    var el = document.getElementById('l2dInteractCount');
+    if (el) el.textContent = _l2dInteractCount;
+}
+
+// ============================================================
+// 表情预设系统（增强版 v2.0）
+// ============================================================
+function l2dExpressionPreset(name, duration) {
+    if (!l2dModel) return;
+    _l2dResetParams();
+    switch (name) {
+        case 'blush':
+            _l2dSetParam('Param9', 1);           // 脸红
+            _l2dSetParam('ParamEyeRSmile', 0.5); // 微笑眼
+            _l2dSetParam('ParamMouthForm', 0.3); // 微笑嘴
+            _l2dSetPartOpacity('blushing', 0.8); // 脸红图层
+            _l2dUpdateMood('blush');
+            break;
+        case 'think':
+            _l2dSetParam('ParamEyeBallY', -0.5); // 眼睛向上看
+            _l2dSetParam('Param8', 0.8);         // 思考表情
+            _l2dSetParam('Param6', 1);           // 思考手臂
+            _l2dSetParam('ParamMouthForm', 0.2); // 微张嘴
+            _l2dSetPartOpacity('arm_think', 1);  // 思考手臂部件
+            _l2dSetPartOpacity('arms_iddle_anim', 0);
+            _l2dUpdateMood('think');
+            break;
+        case 'smile':
+            _l2dSetParam('ParamEyeRSmile', 0.8); // 微笑眼
+            _l2dSetParam('ParamMouthForm', 0.5); // 微笑嘴
+            _l2dSetParam('ParamMouthOpenY', 0.1);// 微张嘴
+            _l2dUpdateMood('happy');
+            break;
+        case 'wink':
+            _l2dSetParam('ParamEyeROpen', 0);    // 闭眼
+            _l2dSetParam('ParamEyeRSmile', 0.3); // 微笑眼
+            _l2dSetParam('ParamMouthForm', 0.3); // 微笑嘴
+            setTimeout(function() { _l2dSetParam('ParamEyeROpen', 1); _l2dSetParam('ParamEyeRSmile', 0); }, 400);
+            break;
+        case 'surprise':
+            _l2dSetParam('ParamEyeROpen', 1.5);  // 睁大眼
+            _l2dSetParam('ParamMouthOpenY', 0.8); // 张嘴
+            _l2dSetParam('ParamMouthForm', 0.5); // O型嘴
+            _l2dSetParam('Param3', 0.7);         // 虹膜缩放
+            _l2dUpdateMood('surprise');
+            break;
+        case 'angry':
+            _l2dSetParam('ParamEyeBallY', 0.3);  // 眼睛向下
+            _l2dSetParam('ParamEyeROpen', 0.8);  // 眯眼
+            _l2dSetParam('ParamMouthForm', -0.5);// 撇嘴
+            _l2dUpdateMood('angry');
+            break;
+        case 'sad':
+            _l2dSetParam('ParamEyeBallY', 0.3);  // 眼睛向下
+            _l2dSetParam('ParamEyeROpen', 0.6);  // 半闭眼
+            _l2dSetParam('ParamMouthForm', -0.3);// 撇嘴
+            _l2dUpdateMood('sad');
+            break;
+        case 'sleepy':
+            _l2dSetParam('ParamEyeROpen', 0.3);  // 半闭眼
+            _l2dSetParam('ParamMouthOpenY', 0.05);// 微张嘴
+            _l2dUpdateMood('sleepy');
+            break;
+        case 'excited':
+            _l2dSetParam('ParamEyeROpen', 1.3);  // 睁大眼
+            _l2dSetParam('ParamEyeRSmile', 0.7); // 微笑眼
+            _l2dSetParam('ParamMouthOpenY', 0.4);// 张嘴
+            _l2dSetParam('ParamMouthForm', 0.6); // 大笑嘴
+            _l2dSetParam('Param3', 0.8);         // 虹膜缩放
+            _l2dUpdateMood('excited');
+            break;
+        case 'tsundere':
+            _l2dSetParam('ParamEyeROpen', 0.7);  // 眯眼
+            _l2dSetParam('ParamMouthForm', -0.3);// 撇嘴
+            _l2dSetParam('Param9', 0.3);         // 微脸红
+            _l2dSetPartOpacity('blushing', 0.4);
+            _l2dUpdateMood('tsundere');
+            break;
+        case 'yawn':
+            _l2dSetParam('ParamMouthOpenY', 0.9);// 大张嘴
+            _l2dSetParam('ParamEyeROpen', 0.4);  // 半闭眼
+            _l2dUpdateMood('sleepy');
+            break;
+        case 'reset':
+        default:
+            _l2dUpdateMood('neutral');
+            break;
+    }
+    if (duration && duration > 0) {
+        clearTimeout(window._l2dExprTimeout);
+        window._l2dExprTimeout = setTimeout(function() { _l2dResetParams(); _l2dUpdateMood('neutral'); }, duration);
+    }
+}
+
+// ============================================================
+// 动作播放系统（增强版 v2.0 — 优先级队列）
+// ============================================================
+function l2dPlayMotion(index, priority) {
+    if (!l2dModel) return;
+    priority = priority || 0;
+    // 如果当前有更高优先级的动作在播放，则入队
+    if (_l2dMotionPriority > priority && _l2dMotionQueue.length > 0) {
+        _l2dMotionQueue.push({index: index, priority: priority});
+        return;
+    }
+    // 如果当前有更低优先级的动作，中断它
+    if (_l2dMotionPriority > 0 && _l2dMotionPriority < priority) {
+        // 将当前动作放回队列
+        _l2dMotionQueue.unshift({index: _l2dMotionQueue.length > 0 ? _l2dMotionQueue[0].index : 0, priority: _l2dMotionPriority});
+    }
+    var names = ['mtn_01', 'mtn_02', 'mtn_03'];
+    var name = names[index] || names[0];
+    _l2dMotionPriority = priority;
+    try {
+        var core = l2dModel.internalModel.coreModel;
+        if (core && typeof core.startMotion === 'function') core.startMotion(name, 0, 1);
+        else {
+            var mgr = l2dModel.internalModel.motionManager;
+            if (mgr) mgr.startMotion(name, 0);
+        }
+    } catch(e) { console.error('Motion:', e); }
+    var durs = [6000, 5000, 8000];
+    var dur = durs[index] || 6000;
+    clearTimeout(window._l2dMotionTimeout);
+    window._l2dMotionTimeout = setTimeout(function() {
+        _l2dMotionPriority = 0;
+        // 处理队列中的下一个动作
+        if (_l2dMotionQueue.length > 0) {
+            var next = _l2dMotionQueue.shift();
+            l2dPlayMotion(next.index, next.priority);
+        }
+    }, dur);
+}
+
+// ============================================================
+// 组合行为系统（表情 + 动作联动）
+// ============================================================
+function _l2dCombinedBehavior(comboName) {
+    if (!l2dModel) return;
+    switch (comboName) {
+        case 'happy_wave':
+            l2dExpressionPreset('smile', 4000);
+            l2dPlayMotion(0, 2); // mtn_01 + smile
+            _l2dUpdateMood('happy');
+            break;
+        case 'think_tilt':
+            l2dExpressionPreset('think', 3000);
+            // ParamAngleX/Y 此模型不支持，已移除
+            _l2dUpdateMood('think');
+            break;
+        case 'surprise_gasp':
+            l2dExpressionPreset('surprise', 2500);
+            l2dPlayMotion(2, 2); // mtn_03 + surprise
+            break;
+        case 'blush_hide':
+            l2dExpressionPreset('blush', 3000);
+            _l2dSetPartOpacity('blushing', 0.8);
+            // ParamAngleX 此模型不支持，已移除
+            setTimeout(function() { _l2dSetPartOpacity('blushing', 0); }, 3000);
+            _l2dUpdateMood('blush');
+            break;
+        case 'excited_jump':
+            l2dExpressionPreset('excited', 3500);
+            l2dPlayMotion(1, 2); // mtn_02 + excited
+            break;
+        case 'wink_play':
+            l2dExpressionPreset('wink', 1500);
+            _l2dSetParam('ParamMouthForm', 0.4);
+            _l2dUpdateMood('happy');
+            break;
+        case 'angry_turn':
+            l2dExpressionPreset('angry', 3000);
+            // ParamAngleX 此模型不支持，已移除
+            _l2dUpdateMood('angry');
+            break;
+        case 'sleepy_stretch':
+            l2dExpressionPreset('yawn', 4000);
+            // ParamAngleY 此模型不支持，已移除
+            _l2dSetParam('Param4', 0.5);
+            _l2dSetParam('Param7', 0.3);
+            _l2dUpdateMood('sleepy');
+            break;
+    }
+}
+
+// ============================================================
+// 空闲动画序列（持续驱动呼吸/头发）
+// ============================================================
+function _l2dStartIdleAnimation() {
+    _l2dStopIdleAnimation();
+    var time = 0;
+    _l2dIdleAnimTimer = setInterval(function() {
+        if (!l2dModel || !l2dLoaded) { _l2dStopIdleAnimation(); return; }
+        time += 0.15;
+        // 仅驱动呼吸参数，移除 Param5（可能关联手部导致抖动）
+        _l2dSetParam('ParamBreath', 0.5 + Math.sin(time * 1.5) * 0.15);
+    }, 400);
+}
+
+function _l2dStopIdleAnimation() {
+    if (_l2dIdleAnimTimer) { clearInterval(_l2dIdleAnimTimer); _l2dIdleAnimTimer = null; }
+}
+
+// ============================================================
+// 条件检测系统（空闲时间/特殊条件触发）
+// ============================================================
+function _l2dStartConditionCheck() {
+    _l2dStopConditionCheck();
+    _l2dLastInteractTime = Date.now();
+    var lastSleepyTrigger = 0;
+    _l2dIdleTimer = setInterval(function() {
+        if (!l2dModel || !l2dLoaded) return;
+        var idleSec = (Date.now() - _l2dLastInteractTime) / 1000;
+        if (idleSec > 60) {
+            // 超过60秒无交互 → 打哈欠 + 低头
+            _l2dCombinedBehavior('sleepy_stretch');
+            _l2dLastInteractTime = Date.now(); // 重置计时器避免重复触发
+        } else if (idleSec > 30 && idleSec - lastSleepyTrigger > 25) {
+            // 超过30秒无交互 → 困倦表情（每25秒最多触发一次）
+            lastSleepyTrigger = idleSec;
+            l2dExpressionPreset('sleepy', 3000);
+        }
+    }, 5000);
+}
+
+function _l2dStopConditionCheck() {
+    if (_l2dIdleTimer) { clearInterval(_l2dIdleTimer); _l2dIdleTimer = null; }
+}
+
+// ============================================================
+// 自动行为系统 v2.0（增强概率分布 + 组合行为）
+// ============================================================
+function _l2dStartAutoBehavior() {
+    _l2dStopAutoBehavior();
+    function scheduleNext() {
+        if (!l2dModel || !l2dLoaded) return;
+        var delay = 15000 + Math.random() * 10000; // 15-25秒间隔
+        _l2dAutoTimer = setTimeout(function() {
+            if (!l2dModel || !l2dLoaded) return;
+            // 用户交互后3秒内不触发自动行为，避免覆盖用户交互结果
+            if (_l2dUserInteractFlag) {
+                scheduleNext();
+                return;
+            }
+            var roll = Math.random();
+            // 概率分布: 20%表情 / 20%动作 / 15%组合 / 10%眨眼 / 10%环顾 / 5%歪头 / 5%深呼吸 / 15%空闲
+            if (roll < 0.20) {
+                // 20% 随机表情
+                var ex = ['blush','think','smile','wink','surprise','sleepy','excited'];
+                l2dExpressionPreset(ex[Math.floor(Math.random() * ex.length)], 2500);
+            } else if (roll < 0.40) {
+                // 20% 随机动作
+                l2dPlayMotion(Math.floor(Math.random() * 3), 1);
+            } else if (roll < 0.55) {
+                // 15% 组合行为
+                var combos = ['happy_wave','think_tilt','surprise_gasp','blush_hide','excited_jump','wink_play','angry_turn','sleepy_stretch'];
+                _l2dCombinedBehavior(combos[Math.floor(Math.random() * combos.length)]);
+            } else if (roll < 0.65) {
+                // 10% 眨眼
+                _l2dSetParam('ParamEyeROpen', 0);
+                setTimeout(function() { _l2dSetParam('ParamEyeROpen', 1); }, 150);
+            } else if (roll < 0.75) {
+                // 10% 环顾四周
+                var lookX = (Math.random() - 0.5) * 0.8;
+                var lookY = (Math.random() - 0.5) * 0.5;
+                _l2dSetParam('ParamEyeBallX', lookX);
+                _l2dSetParam('ParamEyeBallY', lookY);
+                setTimeout(function() { _l2dSetParam('ParamEyeBallX', 0); _l2dSetParam('ParamEyeBallY', 0); }, 2000);
+            } else if (roll < 0.80) {
+                // 5% 俏皮眨眼（替换歪头，ParamAngleX 此模型不支持）
+                _l2dSetParam('ParamEyeROpen', 0);
+                _l2dSetParam('ParamEyeRSmile', 0.6);
+                setTimeout(function() { _l2dSetParam('ParamEyeROpen', 1); _l2dSetParam('ParamEyeRSmile', 0); }, 300);
+            } else if (roll < 0.85) {
+                // 5% 深呼吸（肩膀起伏）
+                _l2dSetParam('ParamBreath', 1.2);
+                setTimeout(function() { _l2dSetParam('ParamBreath', 0.5); }, 1500);
+            }
+            // 15% 空闲 — 什么都不做
+            scheduleNext();
+        }, delay);
+    }
+    scheduleNext();
+}
+
+function _l2dStopAutoBehavior() {
+    if (_l2dAutoTimer) { clearTimeout(_l2dAutoTimer); _l2dAutoTimer = null; }
+}
+
+// ============================================================
+// 交互触发系统 v2.0（点击模型产生丰富反应）
+// ============================================================
+function _l2dSetupInteraction(container) {
+    container.addEventListener('click', function(e) {
+        if (!l2dModel || !l2dLoaded) return;
+        _l2dLastInteractTime = Date.now();
+        var now = Date.now();
+
+        // 标记用户交互，抑制自动行为
+        _l2dUserInteractFlag = true;
+        if (_l2dSuppressAutoTimer) clearTimeout(_l2dSuppressAutoTimer);
+        _l2dSuppressAutoTimer = setTimeout(function() {
+            _l2dUserInteractFlag = false;
+        }, 10000);
+
+        // 防连点检测：6次点击在8秒内 → 困惑反应（放宽阈值避免误触）
+        _l2dClickSpamCount++;
+        if (_l2dClickSpamCount === 1) {
+            _l2dClickSpamTimer = setTimeout(function() { _l2dClickSpamCount = 0; }, 8000);
+        }
+        if (_l2dClickSpamCount >= 6) {
+            _l2dClickSpamCount = 0;
+            clearTimeout(_l2dClickSpamTimer);
+            _l2dUpdateInteract();
+            l2dExpressionPreset('think', 2500);
+            // ParamAngleX/Y 此模型不支持，已移除
+            showToast('🤔 一直点我干嘛...', 'info');
+            return;
+        }
+
+        // 双击检测（500ms内两次点击）
+        if (now - _l2dLastClickTime < 500) {
+            _l2dLastClickTime = 0;
+            _l2dUpdateInteract();
+            // 双击反应 — 加权随机
+            var dblRoll = Math.random();
+            if (dblRoll < 0.30) {
+                _l2dCombinedBehavior('angry_turn'); // 30% 傲娇转头
+            } else if (dblRoll < 0.55) {
+                _l2dCombinedBehavior('excited_jump'); // 25% 兴奋
+            } else if (dblRoll < 0.75) {
+                l2dExpressionPreset('angry', 3000); // 20% 生气
+                setTimeout(function() { l2dPlayMotion(2, 2); }, 200);
+            } else if (dblRoll < 0.90) {
+                _l2dCombinedBehavior('blush_hide'); // 15% 害羞
+            } else {
+                _l2dCombinedBehavior('surprise_gasp'); // 10% 惊讶
+            }
+            return;
+        }
+
+        _l2dLastClickTime = now;
+        _l2dUpdateInteract();
+
+        // 里程碑反应
+        if (_l2dInteractCount === 5) {
+            _l2dCombinedBehavior('happy_wave');
+            showToast('🎉 第5次互动！谢谢~', 'success');
+            return;
+        } else if (_l2dInteractCount === 10) {
+            _l2dCombinedBehavior('excited_jump');
+            showToast('⭐ 第10次互动！好开心~', 'success');
+            return;
+        } else if (_l2dInteractCount === 20) {
+            _l2dCombinedBehavior('blush_hide');
+            showToast('💕 第20次互动...有点害羞呢', 'success');
+            return;
+        } else if (_l2dInteractCount === 50) {
+            _l2dCombinedBehavior('happy_wave');
+            showToast('🌟 第50次互动！最喜欢你了~', 'success');
+            return;
+        }
+
+        // 单击反应 — 加权随机
+        var singleRoll = Math.random();
+        if (singleRoll < 0.25) {
+            l2dExpressionPreset('smile', 2000); // 25% 微笑
+        } else if (singleRoll < 0.45) {
+            l2dExpressionPreset('wink', 1500); // 20% 眨眼
+        } else if (singleRoll < 0.65) {
+            _l2dCombinedBehavior('blush_hide'); // 20% 害羞
+        } else if (singleRoll < 0.80) {
+            l2dExpressionPreset('think', 2500); // 15% 思考
+            // ParamAngleX 此模型不支持，已移除
+        } else if (singleRoll < 0.90) {
+            _l2dCombinedBehavior('excited_jump'); // 10% 兴奋
+        } else {
+            l2dExpressionPreset('sleepy', 2000); // 10% 困倦
+        }
+    });
+}
+
+// ============================================================
+// 初始化 Live2D v2.0
+// ============================================================
+async function initLive2D() {
+    var placeholder = document.getElementById('l2dPlaceholder');
+    var btn = document.getElementById('l2dLoadBtn');
+
+    if (l2dApp) { try { l2dApp.destroy(true, {children: true, texture: true}); } catch(e) {} l2dApp = null; }
+    l2dModel = null;
+
+    var container = document.getElementById('live2dContainer');
+    var oldCanvas = document.getElementById('live2d-canvas');
+    if (oldCanvas) oldCanvas.remove();
+    var canvas = document.createElement('canvas');
+    canvas.id = 'live2d-canvas';
+    container.insertBefore(canvas, container.firstChild);
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 加载中...';
+    placeholder.style.display = 'flex';
+    placeholder.innerHTML = '<div class="loading"></div><p>正在加载 Kurisu 模型...</p>';
+
+    try {
+        if (typeof PIXI === 'undefined') throw new Error('PIXI.js 未加载');
+        if (typeof PIXI.live2d === 'undefined') throw new Error('pixi-live2d-display 未加载');
+
+        l2dApp = new PIXI.Application({ view: canvas, autoStart: true, transparent: true, resizeTo: container, antialias: true });
+        l2dModel = await PIXI.live2d.Live2DModel.from('/static/live2d/amadeusV1.model3.json');
+
+        var sX = container.clientWidth / l2dModel.width;
+        var sY = container.clientHeight / l2dModel.height;
+        var scale = Math.min(sX, sY) * 1.4;
+        l2dModel.scale.set(scale);
+        window._l2dScale = scale;
+        l2dModel.anchor.set(0.5, 1);
+        l2dModel.x = container.clientWidth / 2;
+        l2dModel.y = container.clientHeight + 120;
+
+        l2dApp.stage.addChild(l2dModel);
+        l2dLoaded = true;
+
+        placeholder.style.display = 'none';
+        btn.textContent = '✅ 已加载';
+        btn.disabled = false;
+
+        _l2dUpdateMood('neutral');
+
+        // 鼠标追踪（仅眼球追踪，ParamAngleX/Y 此模型不支持，已移除）
+        container.addEventListener('mousemove', function(e) {
+            if (!l2dModel || !_l2dEyeTracking) return;
+            var r = container.getBoundingClientRect();
+            var x = (e.clientX - r.left) / r.width;
+            var y = (e.clientY - r.top) / r.height;
+            try {
+                l2dModel.internalModel.coreModel.setParameterValueById('ParamEyeBallX', (x - 0.5) * 1);
+                l2dModel.internalModel.coreModel.setParameterValueById('ParamEyeBallY', (y - 0.5) * 1);
+            } catch(e) {}
+        });
+
+        // 点击交互 v2.0
+        _l2dSetupInteraction(container);
+        // 启动空闲动画
+        _l2dStartIdleAnimation();
+        // 启动条件检测
+        _l2dStartConditionCheck();
+        // 启动自动行为 v2.0
+        _l2dStartAutoBehavior();
+
+        showToast('Kurisu 模型加载成功！', 'success');
+    } catch(e) {
+        console.error('Live2D init error:', e);
+        placeholder.innerHTML = '<div class="icon">⚠️</div><p>模型加载失败</p><p style="font-size:11px;color:var(--accent-red)">' + e.message + '</p>';
+        btn.textContent = '🔄 重试加载';
+        btn.disabled = false;
+        showToast('Live2D 加载失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// 眼球追踪开关
+// ============================================================
+function toggleEyeTracking() {
+    _l2dEyeTracking = !_l2dEyeTracking;
+    var btn = document.getElementById('l2dEyeTrackingBtn');
+    if (btn) btn.textContent = _l2dEyeTracking ? '👀 追踪: 开' : '👀 追踪: 关';
+    if (!_l2dEyeTracking) { _l2dSetParam('ParamEyeBallX', 0); _l2dSetParam('ParamEyeBallY', 0); }
+    showToast(_l2dEyeTracking ? '👀 眼球追踪已开启' : '👀 眼球追踪已关闭', 'info');
+}
+
+// ============================================================
+// 说话状态控制
+// ============================================================
+function _l2dStartSpeaking() {
+    if (!l2dModel || !l2dLoaded || _l2dIsSpeaking) return;
+    _l2dIsSpeaking = true;
+    // 设置说话表情：张嘴 + 微笑眼（增强幅度）
+    _l2dSetParam('ParamMouthForm', 0.6);
+    _l2dSetParam('ParamEyeRSmile', 0.5);
+    // 启动嘴巴开合动画（增强幅度）
+    var speakTime = 0;
+    _l2dSpeakTimer = setInterval(function() {
+        if (!l2dModel || !l2dLoaded || !_l2dIsSpeaking) { _l2dStopSpeaking(); return; }
+        speakTime += 0.2;
+        // ParamMouthOpenY 在 0.2~0.9 之间大幅波动模拟说话
+        _l2dSetParam('ParamMouthOpenY', 0.55 + Math.sin(speakTime * 5) * 0.35);
+    }, 80);
+}
+
+function _l2dStopSpeaking() {
+    _l2dIsSpeaking = false;
+    if (_l2dSpeakTimer) { clearInterval(_l2dSpeakTimer); _l2dSpeakTimer = null; }
+    // 恢复嘴巴到闭合状态
+    _l2dSetParam('ParamMouthOpenY', 0);
+    _l2dSetParam('ParamMouthForm', 0);
+    _l2dSetParam('ParamEyeRSmile', 0);
+}
+
+// ============================================================
+// 说话气泡控制
+// ============================================================
+// ============================================================
+// 状态切换（手动选择表情）
+// ============================================================
+function l2dSetMood(mood) {
+    if (!l2dModel || !l2dLoaded) {
+        showToast('请先加载模型', 'info');
+        return;
+    }
+    // 如果正在说话，先停止
+    if (_l2dIsSpeaking) _l2dStopSpeaking();
+    // 应用表情
+    l2dExpressionPreset(mood, 0);
+    // 更新按钮高亮
+    document.querySelectorAll('.mood-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mood') === mood);
+    });
+    showToast('状态切换: ' + (document.getElementById('l2dMood').textContent || mood), 'info');
+}
+
+// ============================================================
+// 根据回复内容自动切换表情
+// ============================================================
+function autoSetMoodByReply(reply) {
+    if (!reply) return;
+    var mood = 'neutral';
+    // 根据关键词判断情绪
+    if (/开心|高兴|哈哈|太好|喜欢|爱|棒|好呀|好哒|嘻嘻|嘿嘿|不错|厉害|有趣/i.test(reply)) {
+        mood = 'happy';
+    } else if (/害羞|不好意思|脸红|讨厌|真是的|别这样/i.test(reply)) {
+        mood = 'blush';
+    } else if (/嗯\.\.\.|让我想想|思考|这个嘛|怎么说|也许|可能|大概|疑惑/i.test(reply)) {
+        mood = 'think';
+    } else if (/什么|真的\?|不会吧|惊讶|天哪|哇|竟然|居然|不是吧/i.test(reply)) {
+        mood = 'surprise';
+    } else if (/哼|生气|可恶|混蛋|笨蛋|白痴|气死|不理|不要|不行|才不/i.test(reply)) {
+        mood = 'angry';
+    } else if (/唉|难过|伤心|悲伤|失落|可惜|遗憾|寂寞|孤独|想哭/i.test(reply)) {
+        mood = 'sad';
+    } else if (/困|累|哈欠|想睡|晚安|好累|疲惫/i.test(reply)) {
+        mood = 'sleepy';
+    } else if (/太棒|超棒|超级|最棒|万岁|好耶|兴奋|激动|期待/i.test(reply)) {
+        mood = 'excited';
+    } else if (/哼|才没有|谁要|笨蛋|白痴|傲娇|才不是|别误会/i.test(reply)) {
+        mood = 'tsundere';
+    }
+    // 更新按钮高亮
+    document.querySelectorAll('.mood-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mood') === mood);
+    });
+    l2dExpressionPreset(mood, 0);
+}
+
+// ============================================================
+// 对话功能
+// ============================================================
+async function l2dSendMessage() {
+    var input = document.getElementById('l2dChatInput');
+    var msg = input.value.trim();
+    if (!msg) return;
+    var box = document.getElementById('l2dChatBox');
+
+    // 移除空状态
+    var empty = box.querySelector('.empty-state');
+    if (empty) box.innerHTML = '';
+
+    // 添加用户消息
+    var um = document.createElement('div');
+    um.className = 'msg user';
+    um.innerHTML = '<div class="sender">You</div>' + msg;
+    box.appendChild(um);
+    box.scrollTop = box.scrollHeight;
+    input.value = '';
+    input.disabled = true;
+
+    // 添加加载中
+    var lm = document.createElement('div');
+    lm.className = 'msg assistant';
+    lm.innerHTML = '<div class="sender">Amadeus</div><div class="loading"></div>';
+    box.appendChild(lm);
+    box.scrollTop = box.scrollHeight;
+
+    // 切换到思考表情
+    if (l2dLoaded) {
+        l2dExpressionPreset('think', 0);
+        document.querySelectorAll('.mood-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-mood') === 'think');
+        });
+    }
+
+    try {
+        var data = await apiPost('/api/llm/live2d_chat', {message: msg, contact_name: 'User'});
+        lm.remove();
+
+        var reply = data.success ? (data.reply || '...') : ('错误: ' + (data.error || '请求失败'));
+
+        // 创建回复消息容器（先不显示文字）
+        var am = document.createElement('div');
+        am.className = 'msg assistant';
+        am.innerHTML = '<div class="sender">Amadeus</div><span class="typing-text"></span><span class="typing-cursor">▌</span>';
+        box.appendChild(am);
+        var textSpan = am.querySelector('.typing-text');
+        var cursorSpan = am.querySelector('.typing-cursor');
+
+        // 打字机效果 + 说话动画
+        if (l2dLoaded) {
+            _l2dStartSpeaking();
+            autoSetMoodByReply(reply);
+        }
+
+        var idx = 0;
+        var typingTimer = setInterval(function() {
+            if (idx < reply.length) {
+                textSpan.textContent += reply[idx];
+                idx++;
+                box.scrollTop = box.scrollHeight;
+            } else {
+                clearInterval(typingTimer);
+                if (cursorSpan) cursorSpan.remove();
+                if (l2dLoaded) _l2dStopSpeaking();
+            }
+        }, 30); // 每30ms显示一个字 ≈ 30字/秒
+
+        // 标记用户交互，抑制自动行为
+        _l2dLastInteractTime = Date.now();
+        _l2dUserInteractFlag = true;
+        if (_l2dSuppressAutoTimer) clearTimeout(_l2dSuppressAutoTimer);
+        _l2dSuppressAutoTimer = setTimeout(function() {
+            _l2dUserInteractFlag = false;
+        }, 10000);
+
+    } catch(e) {
+        lm.remove();
+        var em = document.createElement('div');
+        em.className = 'msg assistant';
+        em.innerHTML = '<div class="sender" style="color:var(--accent-red)">错误</div>' + e.message;
+        box.appendChild(em);
+        if (l2dLoaded) {
+            l2dExpressionPreset('sad', 2000);
+            document.querySelectorAll('.mood-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-mood') === 'sad');
+            });
+        }
+    }
+    input.disabled = false;
+    input.focus();
+}
+
+async function l2dResetChat() {
+    try {
+        var data = await apiPost('/api/llm/reset', {});
+        showToast(data.message || '对话已重置', data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('l2dChatBox').innerHTML = '<div class="empty-state"><p>对话已重置 ✨</p></div>';
+            if (l2dLoaded) {
+                l2dSetMood('neutral');
+            }
+        }
+    } catch(e) {
+        showToast('重置失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// 页面切换自动加载 + 欢迎回家
+// ============================================================
+var origSwitch = switchPage;
+switchPage = function(page) {
+    origSwitch(page);
+    if (page === 'live2d') {
+        if (!l2dLoaded) {
+            setTimeout(initLive2D, 500);
+        } else {
+            // 欢迎回家反应（每次切回 Live2D 页面）
+            if (!_l2dWelcomeShown) {
+                _l2dWelcomeShown = true;
+                setTimeout(function() {
+                    _l2dCombinedBehavior('happy_wave');
+                    showToast('👋 欢迎回来！', 'success');
+                }, 800);
+            } else {
+                setTimeout(function() {
+                    l2dExpressionPreset('smile', 1500);
+                }, 500);
+            }
+            setTimeout(function() {
+                if (l2dApp && !l2dApp.destroyed && l2dModel) {
+                    l2dApp.resize();
+                    var c = document.getElementById('live2dContainer');
+                    if (c) { var s = window._l2dScale || 1.2; l2dModel.scale.set(s); l2dModel.anchor.set(0.5, 1); l2dModel.x = c.clientWidth / 2; l2dModel.y = c.clientHeight + 120; }
+                }
+            }, 100);
+        }
+    }
+};
+</script>
+</body>
+</html>

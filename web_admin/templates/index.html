@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amadeus - 管理面板</title>
+    <style>
+        /* ============================================================
+           全局样式
+           ============================================================ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #1a73e8;
+            --primary-hover: #1557b0;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --text: #202124;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           布局
+           ============================================================ */
+        .app-header {
+            background: var(--primary);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .app-header h1 { font-size: 20px; font-weight: 600; }
+        .app-header .subtitle { font-size: 13px; opacity: 0.85; }
+
+        .app-nav {
+            display: flex;
+            gap: 4px;
+            background: var(--card-bg);
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        .app-nav button {
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .app-nav button:hover { background: #e8f0fe; color: var(--primary); }
+        .app-nav button.active { background: var(--primary); color: white; }
+
+        .app-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ============================================================
+           卡片
+           ============================================================ */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ============================================================
+           状态网格
+           ============================================================ */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            text-align: center;
+        }
+        .status-item .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-item .value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .status-item .value.green { color: var(--success); }
+        .status-item .value.red { color: var(--danger); }
+        .status-item .value.blue { color: var(--primary); }
+        .status-item .value.orange { color: var(--warning); }
+
+        /* ============================================================
+           表单
+           ============================================================ */
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text);
+            background: white;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.15);
+        }
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #2d8f47; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #c5221f; }
+        .btn-warning { background: var(--warning); color: #333; }
+        .btn-warning:hover { background: #e5a800; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-outline:hover { background: #f1f3f4; }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* ============================================================
+           联系人列表
+           ============================================================ */
+        .contact-item {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .contact-item .contact-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .contact-item .contact-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .contact-item .contact-relation {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .contact-item .remove-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+        }
+        .contact-item .remove-btn:hover { opacity: 0.7; }
+
+        /* ============================================================
+           时间段
+           ============================================================ */
+        .time-range-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .time-range-item input[type="time"] {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        /* ============================================================
+           日志
+           ============================================================ */
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+            font-size: 12px;
+            padding: 16px;
+            border-radius: var(--radius);
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-container .log-line {
+            padding: 1px 0;
+            line-height: 1.5;
+        }
+        .log-container .log-line:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* ============================================================
+           LLM 测试
+           ============================================================ */
+        .chat-box {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .chat-msg {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 80%;
+        }
+        .chat-msg.user {
+            background: var(--primary);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.assistant {
+            background: #e8f0fe;
+            color: var(--text);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-msg .sender {
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            opacity: 0.7;
+        }
+        .chat-msg .time {
+            font-size: 10px;
+            opacity: 0.5;
+            margin-top: 2px;
+        }
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-input-row input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .chat-input-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* ============================================================
+           提示消息
+           ============================================================ */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--primary); }
+
+        /* ============================================================
+           响应式
+           ============================================================ */
+        @media (max-width: 768px) {
+            .form-row, .form-row-3 { grid-template-columns: 1fr; }
+            .status-grid { grid-template-columns: repeat(2, 1fr); }
+            .app-header h1 { font-size: 16px; }
+        }
+
+        /* ============================================================
+           加载动画
+           ============================================================ */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: #e6f4ea; color: #1e7e34; }
+        .badge-red { background: #fce8e6; color: #c5221f; }
+        .badge-blue { background: #e8f0fe; color: #1a73e8; }
+        .badge-gray { background: #f1f3f4; color: #5f6368; }
+    </style>
+</head>
+<body>
+    <!-- ============================================================
+    顶部导航
+    ============================================================ -->
+    <header class="app-header">
+        <div>
+            <h1>🤖 微信自动回复 · 管理面板</h1>
+            <div class="subtitle">大模型驱动 · 角色扮演 · 智能回复</div>
+        </div>
+        <div>
+            <span id="headerStatus" class="badge badge-gray">加载中...</span>
+        </div>
+    </header>
+
+    <nav class="app-nav" id="mainNav">
+        <button class="active" data-page="dashboard">📊 仪表盘</button>
+        <button data-page="config">⚙️ 配置管理</button>
+        <button data-page="contacts">👥 联系人</button>
+        <button data-page="llm">🧠 LLM 测试</button>
+        <button data-page="logs">📋 日志</button>
+    </nav>
+
+    <!-- ============================================================
+    提示消息
+    ============================================================ -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ============================================================
+    页面容器
+    ============================================================ -->
+    <div class="app-content">
+
+        <!-- ===== 仪表盘 ===== -->
+        <div id="page-dashboard" class="page active">
+            <div class="status-grid" id="statusGrid">
+                <div class="status-item">
+                    <div class="label">运行状态</div>
+                    <div class="value" id="statRunning">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">运行时间</div>
+                    <div class="value blue" id="statUptime">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">当前时间</div>
+                    <div class="value" id="statTime" style="font-size:16px;">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">时间段</div>
+                    <div class="value" id="statTimeRange">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">已检查</div>
+                    <div class="value blue" id="statChecks">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">已回复</div>
+                    <div class="value blue" id="statReplies">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">联系人</div>
+                    <div class="value blue" id="statContacts">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">LLM 状态</div>
+                    <div class="value" id="statLlm">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">控制面板</div>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="controlAction('start')">▶ 启动</button>
+                    <button class="btn btn-danger" onclick="controlAction('stop')">⏹ 停止</button>
+                    <button class="btn btn-warning" onclick="controlAction('restart')">🔄 重置追踪</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 配置管理 ===== -->
+        <div id="page-config" class="page">
+            <div class="card">
+                <div class="card-title">基本设置</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>检测间隔（秒）</label>
+                        <input type="number" id="cfgCheckInterval" step="0.5" min="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>日志文件</label>
+                        <input type="text" id="cfgLogFile">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>表情包/GIF 路径（首次回复时发送）</label>
+                    <input type="text" id="cfgStickerPath" placeholder="留空则不发送">
+                </div>
+                <div class="form-group">
+                    <label>预设回复消息（LLM 失败时降级使用）</label>
+                    <textarea id="cfgReplyMessage" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">工作时间段</div>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+                    只有在设定的时间段内，程序才会检测并回复消息。
+                </p>
+                <div id="timeRangeList"></div>
+                <button class="btn btn-outline btn-sm" onclick="addTimeRange()">+ 添加时间段</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">LLM 大模型配置</div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="cfgLlmEnabled" onchange="toggleLlmFields()">
+                        启用大模型回复
+                    </label>
+                </div>
+                <div id="llmFields">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>提供商</label>
+                            <select id="cfgLlmProvider"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>模型名称（留空使用默认）</label>
+                            <input type="text" id="cfgLlmModel" placeholder="留空自动选择">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>API 端点（留空使用默认）</label>
+                        <input type="text" id="cfgLlmEndpoint" placeholder="留空自动选择">
+                    </div>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Max Tokens</label>
+                            <input type="number" id="cfgLlmMaxTokens" min="1" max="4096">
+                        </div>
+                        <div class="form-group">
+                            <label>Temperature</label>
+                            <input type="number" id="cfgLlmTemperature" step="0.1" min="0" max="2">
+                        </div>
+                        <div class="form-group">
+                            <label>上下文轮数</label>
+                            <input type="number" id="cfgLlmContextWindow" min="0" max="50">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>角色</label>
+                            <input type="text" id="cfgLlmCharacter" placeholder="kurisu">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="cfgLlmEnableContext">
+                                启用上下文记忆
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+            </div>
+        </div>
+
+        <!-- ===== 联系人管理 ===== -->
+        <div id="page-contacts" class="page">
+            <div class="card">
+                <div class="card-title">联系人列表</div>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+                    每个联系人可以独立配置关系描述和个性化参数。
+                </p>
+                <div id="contactList"></div>
+                <button class="btn btn-outline" onclick="addContact()">+ 添加联系人</button>
+            </div>
+            <div class="card">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+            </div>
+        </div>
+
+        <!-- ===== LLM 测试 ===== -->
+        <div id="page-llm" class="page">
+            <div class="card">
+                <div class="card-title">LLM 对话测试</div>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+                    模拟发送消息给指定联系人，测试大模型的回复效果。
+                </p>
+                <div class="form-row" style="margin-bottom:12px;">
+                    <div class="form-group">
+                        <label>模拟联系人</label>
+                        <input type="text" id="testContactName" value="测试" placeholder="联系人名称">
+                    </div>
+                    <div class="form-group">
+                        <label>关系描述（可选）</label>
+                        <input type="text" id="testContactRelation" placeholder="如：男朋友、导师">
+                    </div>
+                </div>
+                <div class="chat-box" id="chatBox"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatInput" placeholder="输入消息，按 Enter 发送..."
+                           onkeydown="if(event.key==='Enter') sendTestMessage()">
+                    <button class="btn btn-primary" onclick="sendTestMessage()">发送</button>
+                    <button class="btn btn-outline" onclick="clearChat()">清空</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">对话历史管理</div>
+                <div class="btn-group">
+                    <button class="btn btn-outline" onclick="resetConversation()">重置所有对话历史</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 日志 ===== -->
+        <div id="page-logs" class="page">
+            <div class="card">
+                <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>回复日志</span>
+                    <button class="btn btn-outline btn-sm" onclick="refreshLogs()">🔄 刷新</button>
+                </div>
+                <div class="log-container" id="logContainer">
+                    <div class="log-line">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+    JavaScript
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // 工具函数
+        // ============================================================
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function api(path, options = {}) {
+            const defaults = {
+                headers: { 'Content-Type': 'application/json' },
+            };
+            return fetch(path, { ...defaults, ...options })
+                .then(r => r.json())
+                .catch(err => {
+                    showToast('网络请求失败: ' + err.message, 'error');
+                    return { success: false, error: err.message };
+                });
+        }
+
+        // ============================================================
+        // 导航切换
+        // ============================================================
+        document.querySelectorAll('.app-nav button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.app-nav button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('page-' + btn.dataset.page).classList.add('active');
+
+                // 进入日志页时自动刷新
+                if (btn.dataset.page === 'logs') refreshLogs();
+                // 进入配置页时加载配置
+                if (btn.dataset.page === 'config' || btn.dataset.page === 'contacts') loadConfigToForm();
+            });
+        });
+
+        // ============================================================
+        // 仪表盘
+        // ============================================================
+        function refreshDashboard() {
+            api('/api/status').then(data => {
+                const s = document.getElementById('statRunning');
+                s.textContent = data.running ? '🟢 运行中' : '🔴 已停止';
+                s.className = 'value ' + (data.running ? 'green' : 'red');
+
+                document.getElementById('statUptime').textContent = data.uptime;
+                document.getElementById('statTime').textContent = data.current_time;
+                document.getElementById('statChecks').textContent = data.total_checks.toLocaleString();
+                document.getElementById('statReplies').textContent = data.reply_count.toLocaleString();
+                document.getElementById('statContacts').textContent = data.contact_count;
+
+                const tr = document.getElementById('statTimeRange');
+                tr.textContent = data.in_time_range ? '🟢 在时间段内' : '🔴 不在时间段内';
+                tr.className = 'value ' + (data.in_time_range ? 'green' : 'red');
+
+                const llm = document.getElementById('statLlm');
+                if (data.llm_ready) {
+                    llm.textContent = '🟢 ' + data.llm_status;
+                    llm.className = 'value green';
+                } else if (data.llm_enabled) {
+                    llm.textContent = '🟡 ' + data.llm_status;
+                    llm.className = 'value orange';
+                } else {
+                    llm.textContent = '⚪ 未启用';
+                    llm.className = 'value';
+                }
+
+                // 更新头部状态
+                const hs = document.getElementById('headerStatus');
+                hs.textContent = data.running ? '🟢 运行中' : '🔴 已停止';
+                hs.className = 'badge ' + (data.running ? 'badge-green' : 'badge-red');
+            });
+        }
+
+        function controlAction(action) {
+            const labels = { start: '启动', stop: '停止', restart: '重置' };
+            api('/api/control/' + action, { method: 'POST' }).then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    refreshDashboard();
+                } else {
+                    showToast(data.error || '操作失败', 'error');
+                }
+            });
+        }
+
+        // ============================================================
+        // 配置管理
+        // ============================================================
+        let _currentConfig = null;
+
+        function loadConfigToForm() {
+            api('/api/config').then(data => {
+                if (!data.success) { showToast('加载配置失败', 'error'); return; }
+                _currentConfig = data.config;
+                const c = data.config;
+
+                document.getElementById('cfgCheckInterval').value = c.check_interval;
+                document.getElementById('cfgLogFile').value = c.log_file;
+                document.getElementById('cfgStickerPath').value = c.sticker_path;
+                document.getElementById('cfgReplyMessage').value = c.reply_message;
+
+                // LLM 配置
+                document.getElementById('cfgLlmEnabled').checked = c.llm.enabled;
+                document.getElementById('cfgLlmModel').value = c.llm.model;
+                document.getElementById('cfgLlmEndpoint').value = c.llm.api_endpoint;
+                document.getElementById('cfgLlmMaxTokens').value = c.llm.max_tokens;
+                document.getElementById('cfgLlmTemperature').value = c.llm.temperature;
+                document.getElementById('cfgLlmCharacter').value = c.llm.character;
+                document.getElementById('cfgLlmEnableContext').checked = c.llm.enable_context;
+                document.getElementById('cfgLlmContextWindow').value = c.llm.context_window;
+                toggleLlmFields();
+
+                // 加载提供商列表
+                loadProviders(c.llm.provider);
+
+                // 时间段
+                renderTimeRanges(c.time_ranges);
+
+                // 联系人
+                renderContacts(c.contacts);
+            });
+        }
+
+        function loadProviders(selected) {
+            api('/api/providers').then(data => {
+                if (!data.success) return;
+                const sel = document.getElementById('cfgLlmProvider');
+                sel.innerHTML = '';
+                data.providers.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = `${p.name} (${p.default_model})`;
+                    if (p.id === selected) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        function toggleLlmFields() {
+            const enabled = document.getElementById('cfgLlmEnabled').checked;
+            document.getElementById('llmFields').style.display = enabled ? 'block' : 'none';
+        }
+
+        // ============================================================
+        // 时间段管理
+        // ============================================================
+        function renderTimeRanges(ranges) {
+            const container = document.getElementById('timeRangeList');
+            container.innerHTML = '';
+            ranges.forEach((r, i) => {
+                const div = document.createElement('div');
+                div.className = 'time-range-item';
+                div.innerHTML = `
+                    <input type="time" value="${r.start}" data-index="${i}" data-field="start">
+                    <span>至</span>
+                    <input type="time" value="${r.end}" data-index="${i}" data-field="end">
+                    <button class="btn btn-outline btn-sm" onclick="removeTimeRange(${i})">✕</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addTimeRange() {
+            const ranges = _currentConfig.time_ranges || [];
+            ranges.push({ start: '09:00', end: '12:00' });
+            renderTimeRanges(ranges);
+        }
+
+        function removeTimeRange(index) {
+            const ranges = _currentConfig.time_ranges || [];
+            ranges.splice(index, 1);
+            renderTimeRanges(ranges);
+        }
+
+        // ============================================================
+        // 联系人管理
+        // ============================================================
+        function renderContacts(contacts) {
+            const container = document.getElementById('contactList');
+            container.innerHTML = '';
+            contacts.forEach((c, i) => {
+                const div = document.createElement('div');
+                div.className = 'contact-item';
+                const p = c.personalization || {};
+                div.innerHTML = `
+                    <div class="contact-header">
+                        <div>
+                            <span class="contact-name">${c.name}</span>
+                            <span class="contact-relation">${c.relation ? '（' + c.relation + '）' : ''}</span>
+                        </div>
+                        <button class="remove-btn" onclick="removeContact(${i})">✕</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>名称</label>
+                            <input type="text" value="${c.name}"
+                                   onchange="updateContact(${i},'name',this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>关系描述</label>
+                            <input type="text" value="${c.relation || ''}"
+                                   placeholder="如：男朋友、导师"
+                                   onchange="updateContact(${i},'relation',this.value)">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>静默时间（此时间前不回复）</label>
+                            <input type="time" value="${p.silent_before || ''}"
+                                   onchange="updatePersonalization(${i},'silent_before',this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>专属表情包路径</label>
+                            <input type="text" value="${p.sticker_path || ''}"
+                                   placeholder="覆盖全局设置"
+                                   onchange="updatePersonalization(${i},'sticker_path',this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>自定义回复（首次触发时发送，不走 LLM）</label>
+                        <textarea rows="2" placeholder="留空则使用 LLM 或预设消息"
+                                  onchange="updatePersonalization(${i},'custom_reply',this.value)">${p.custom_reply || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>专属预设消息（覆盖全局预设消息）</label>
+                        <textarea rows="2" placeholder="留空则使用全局预设消息"
+                                  onchange="updatePersonalization(${i},'reply_message',this.value)">${p.reply_message || ''}</textarea>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addContact() {
+            const contacts = _currentConfig.contacts || [];
+            contacts.push({ name: '新联系人', relation: '', personalization: {} });
+            renderContacts(contacts);
+        }
+
+        function removeContact(index) {
+            const contacts = _currentConfig.contacts || [];
+            contacts.splice(index, 1);
+            renderContacts(contacts);
+        }
+
+        function updateContact(index, field, value) {
+            const contacts = _currentConfig.contacts || [];
+            contacts[index][field] = value;
+        }
+
+        function updatePersonalization(index, key, value) {
+            const contacts = _currentConfig.contacts || [];
+            if (!contacts[index].personalization) contacts[index].personalization = {};
+            if (value) {
+                contacts[index].personalization[key] = value;
+            } else {
+                delete contacts[index].personalization[key];
+            }
+        }
+
+        // ============================================================
+        // 保存配置
+        // ============================================================
+        function saveConfig() {
+            const c = _currentConfig;
+            if (!c) { showToast('请先加载配置', 'error'); return; }
+
+            // 从表单读取基本设置
+            c.check_interval = parseFloat(document.getElementById('cfgCheckInterval').value) || 2.0;
+            c.log_file = document.getElementById('cfgLogFile').value || 'reply_log.txt';
+            c.sticker_path = document.getElementById('cfgStickerPath').value || '';
+            c.reply_message = document.getElementById('cfgReplyMessage').value || '';
+
+            // 从时间段输入读取
+            const timeInputs = document.querySelectorAll('#timeRangeList .time-range-item');
+            c.time_ranges = Array.from(timeInputs).map(item => {
+                const inputs = item.querySelectorAll('input[type="time"]');
+                return { start: inputs[0].value, end: inputs[1].value };
+            });
+
+            // LLM 配置
+            c.llm.enabled = document.getElementById('cfgLlmEnabled').checked;
+            c.llm.provider = document.getElementById('cfgLlmProvider').value;
+            c.llm.model = document.getElementById('cfgLlmModel').value;
+            c.llm.api_endpoint = document.getElementById('cfgLlmEndpoint').value;
+            c.llm.max_tokens = parseInt(document.getElementById('cfgLlmMaxTokens').value) || 500;
+            c.llm.temperature = parseFloat(document.getElementById('cfgLlmTemperature').value) || 0.8;
+            c.llm.character = document.getElementById('cfgLlmCharacter').value || 'kurisu';
+            c.llm.enable_context = document.getElementById('cfgLlmEnableContext').checked;
+            c.llm.context_window = parseInt(document.getElementById('cfgLlmContextWindow').value) || 10;
+
+            // 发送保存请求
+            api('/api/config', {
+                method: 'PUT',
+                body: JSON.stringify(c),
+            }).then(data => {
+                if (data.success) {
+                    showToast('✅ 配置已保存', 'success');
+                } else {
+                    const err = data.errors ? data.errors.join('; ') : data.error;
+                    showToast('❌ ' + (err || '保存失败'), 'error');
+                }
+            });
+        }
+
+        // ============================================================
+        // LLM 测试
+        // ============================================================
+        function sendTestMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const contactName = document.getElementById('testContactName').value || '测试';
+            const contactRelation = document.getElementById('testContactRelation').value || '';
+
+            // 添加用户消息到聊天框
+            addChatMessage('user', message, contactName);
+
+            input.value = '';
+            input.disabled = true;
+            input.placeholder = '等待回复...';
+
+            api('/api/llm/test', {
+                method: 'POST',
+                body: JSON.stringify({
+                    message: message,
+                    contact_name: contactName,
+                    contact_relation: contactRelation,
+                }),
+            }).then(data => {
+                input.disabled = false;
+                input.placeholder = '输入消息，按 Enter 发送...';
+                input.focus();
+
+                if (data.success) {
+                    addChatMessage('assistant', data.reply, '牧濑红莉栖');
+                } else {
+                    addChatMessage('assistant', '❌ ' + (data.error || '回复生成失败'), '系统');
+                }
+            }).catch(() => {
+                input.disabled = false;
+                input.placeholder = '输入消息，按 Enter 发送...';
+                addChatMessage('assistant', '❌ 网络请求失败', '系统');
+            });
+        }
+
+        function addChatMessage(role, content, sender) {
+            const box = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = 'chat-msg ' + role;
+            const now = new Date().toLocaleTimeString();
+            div.innerHTML = `
+                <div class="sender">${sender}</div>
+                <div>${content}</div>
+                <div class="time">${now}</div>
+            `;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function clearChat() {
+            document.getElementById('chatBox').innerHTML = '';
+        }
+
+        function resetConversation() {
+            api('/api/llm/reset', { method: 'POST' }).then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.error || '重置失败', 'error');
+                }
+            });
+        }
+
+        // ============================================================
+        // 日志
+        // ============================================================
+        function refreshLogs() {
+            const container = document.getElementById('logContainer');
+            container.innerHTML = '<div class="log-line">加载中...</div>';
+
+            api('/api/logs?max_lines=300').then(data => {
+                if (!data.success) {
+                    container.innerHTML = '<div class="log-line">❌ 加载日志失败</div>';
+                    return;
+                }
+                container.innerHTML = '';
+                if (data.lines.length === 0) {
+                    container.innerHTML = '<div class="log-line">暂无日志记录</div>';
+                    return;
+                }
+                data.lines.forEach(line => {
+                    const div = document.createElement('div');
+                    div.className = 'log-line';
+                    div.textContent = line;
+                    container.appendChild(div);
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        // ============================================================
+        // 定时刷新
+        // ============================================================
+        setInterval(refreshDashboard, 3000);
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshDashboard();
+            loadConfigToForm();
+        });
+    </script>
+</body>
+</html>

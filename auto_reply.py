@@ -34,6 +34,7 @@ from wechat_monitor import (
     get_active_chat_name,
     bring_window_to_front,
     get_last_message_text,
+    get_last_other_message_text,
 )
 
 
@@ -235,11 +236,16 @@ def should_reply(contact_name: str, config: Config) -> bool:
 
 def has_new_message(wechat_window, contact_name: str) -> bool:
     """
-    检测指定联系人是否有新消息
+    检测指定联系人是否有新消息（仅检测对方发送的消息）
 
-    通过对比当前最后一条消息与之前记录的最后一条消息来判断。
+    通过对比当前最后一条「对方发送」的消息与之前记录的最后一条消息来判断。
+    自己发送的消息（包括自动回复）会被跳过，避免自己触发自己的回复。
+
     切换联系人后，会验证当前激活的聊天窗口确实是目标联系人，
     避免因 UI 切换延迟导致读到上一个联系人的消息（误发）。
+
+    优化：如果当前聊天窗口已经是目标联系人，则跳过 activate_chat，
+    避免在遍历多个联系人时频繁切换窗口（"在两个联系人之间选来选去"）。
 
     Args:
         wechat_window: 微信主窗口控件
@@ -251,45 +257,52 @@ def has_new_message(wechat_window, contact_name: str) -> bool:
     global _last_messages
 
     try:
-        # 激活联系人聊天窗口以获取最新消息
-        if not activate_chat(wechat_window, contact_name):
-            return False
+        # === 优化：检查当前聊天窗口是否已经是目标联系人 ===
+        # 如果是，跳过 activate_chat，避免不必要的窗口切换
+        current_active = get_active_chat_name(wechat_window)
+        if current_active != contact_name:
+            # 当前窗口不是目标联系人，才需要切换
+            if not activate_chat(wechat_window, contact_name):
+                return False
+            time.sleep(0.3)
 
-        time.sleep(0.3)
-
-        # === 验证当前激活的聊天窗口确实是目标联系人 ===
-        # 防止 UI 切换延迟导致读到上一个联系人的消息
-        active_name = get_active_chat_name(wechat_window)
-        if active_name is None:
-            # 无法获取当前聊天名称，可能是 UI 尚未切换完成
-            # 等待更长时间后重试一次
-            print(f"[检测] 无法确认当前聊天窗口，等待后重试 [{contact_name}]...")
-            time.sleep(0.5)
+            # === 验证当前激活的聊天窗口确实是目标联系人 ===
+            # 防止 UI 切换延迟导致读到上一个联系人的消息
             active_name = get_active_chat_name(wechat_window)
+            if active_name is None:
+                # 无法获取当前聊天名称，可能是 UI 尚未切换完成
+                # 等待更长时间后重试一次
+                print(f"[检测] 无法确认当前聊天窗口，等待后重试 [{contact_name}]...")
+                time.sleep(0.5)
+                active_name = get_active_chat_name(wechat_window)
 
-        if active_name is not None and active_name != contact_name:
-            # 当前激活的聊天窗口不是目标联系人 → UI 切换失败或延迟
-            # 跳过本次检测，避免误读
-            print(f"[检测] ⚠️ 当前聊天窗口为 [{active_name}]，"
-                  f"非目标 [{contact_name}]，跳过本次检测")
-            return False
+            if active_name is not None and active_name != contact_name:
+                # 当前激活的聊天窗口不是目标联系人 → UI 切换失败或延迟
+                # 跳过本次检测，避免误读
+                print(f"[检测] ⚠️ 当前聊天窗口为 [{active_name}]，"
+                      f"非目标 [{contact_name}]，跳过本次检测")
+                return False
+        else:
+            # 已经在目标联系人的聊天窗口，无需切换
+            # 加一个短暂等待确保消息列表已刷新
+            time.sleep(0.1)
 
-        # 获取当前最后一条消息
-        current_last = get_last_message_text(wechat_window)
+        # 获取当前最后一条「对方发送」的消息（跳过自己发的消息）
+        current_last = get_last_other_message_text(wechat_window)
         if current_last is None:
             return False
 
-        # 获取之前记录的最后一条消息
+        # 获取之前记录的最后一条对方消息
         previous_last = _last_messages.get(contact_name)
 
         if previous_last is None:
-            # 首次检测，记录当前消息但不触发回复
+            # 首次检测，记录当前对方消息但不触发回复
             _last_messages[contact_name] = current_last
-            print(f"[检测] 首次记录 [{contact_name}] 的最后消息: {current_last[:30]}...")
+            print(f"[检测] 首次记录 [{contact_name}] 的对方最后消息: {current_last[:30]}...")
             return False
 
         if current_last != previous_last:
-            # 消息发生了变化，说明有新消息
+            # 对方消息发生了变化，说明对方发了新消息
             _last_messages[contact_name] = current_last
             print(f"[检测] 🔔 [{contact_name}] 发来新消息: {current_last[:30]}...")
             return True
@@ -360,12 +373,15 @@ def send_reply(
 
         time.sleep(0.3)
 
-        # 激活联系人聊天窗口
-        if not activate_chat(wechat_window, contact_name):
-            print(f"[回复] 无法激活联系人聊天窗口: {contact_name}")
-            return False
-
-        time.sleep(0.5)
+        # 激活联系人聊天窗口（如果当前已经在该联系人的窗口，跳过切换）
+        current_active = get_active_chat_name(wechat_window)
+        if current_active != contact_name:
+            if not activate_chat(wechat_window, contact_name):
+                print(f"[回复] 无法激活联系人聊天窗口: {contact_name}")
+                return False
+            time.sleep(0.5)
+        else:
+            time.sleep(0.2)
 
         # 获取输入框
         edit = get_chat_input_edit(wechat_window)
@@ -394,9 +410,13 @@ def send_reply(
         edit.SendKeys("{Enter}")
         time.sleep(0.5)
 
-        # 发送成功后，更新追踪记录为刚刚发送的消息内容
+        # 发送成功后，重新读取一次对方消息来更新追踪记录
         # 这样下次检测时不会把刚发的回复当作新消息
-        _last_messages[contact_name] = message
+        # 使用 get_last_other_message_text 确保记录的是对方消息，而非自己刚发的
+        time.sleep(0.3)
+        other_msg = get_last_other_message_text(wechat_window)
+        if other_msg is not None:
+            _last_messages[contact_name] = other_msg
         print(f"[回复] ✅ 已向 [{contact_name}] 发送自动回复")
         return True
 
@@ -427,7 +447,7 @@ def log_reply(contact_name: str, log_file: str, is_llm: bool = False):
         print(f"[回复] 写入日志失败: {e}")
 
 
-def process_auto_reply(config: Config) -> int:
+def process_auto_reply(config: Config, selected_contacts: Optional[set] = None) -> int:
     """
     执行一次自动回复检查和处理
 
@@ -444,6 +464,7 @@ def process_auto_reply(config: Config) -> int:
 
     Args:
         config: 配置对象
+        selected_contacts: 可选，仅检测这些选中的联系人（None=检测所有联系人）
 
     Returns:
         本次处理的回复数量
@@ -452,51 +473,66 @@ def process_auto_reply(config: Config) -> int:
 
     # 如果不在时间段内，跳过
     if not is_in_time_range(config.time_ranges):
+        print(f"[自动回复] ⏰ 当前不在设定的时间段内，跳过检测")
         return 0
 
     # 查找微信窗口
     wechat_window = find_wechat_window()
     if not wechat_window:
+        print(f"[自动回复] ⚠️ 未找到微信窗口，跳过本次检测")
         return 0
 
     reply_count = 0
+
+    # 过滤出要检测的联系人
+    if selected_contacts is not None:
+        monitored_contacts = [c for c in config.contacts if c.name in selected_contacts]
+    else:
+        monitored_contacts = list(config.contacts)
+
+    if not monitored_contacts:
+        return 0
 
     # ============================================================
     # 第一步：如果有活跃联系人，优先检测该联系人是否有新消息
     # ============================================================
     if _active_contact is not None:
-        # 查找活跃联系人的配置
-        active_cfg = None
-        for c in config.contacts:
-            if c.name == _active_contact:
-                active_cfg = c
-                break
+        # 如果活跃联系人不在选中列表中，解锁
+        if selected_contacts is not None and _active_contact not in selected_contacts:
+            _active_contact = None
+        else:
+            # 查找活跃联系人的配置
+            active_cfg = None
+            for c in monitored_contacts:
+                if c.name == _active_contact:
+                    active_cfg = c
+                    break
 
-        if active_cfg is not None:
-            contact_name = active_cfg.name
-            contact_relation = active_cfg.relation
+            if active_cfg is not None:
+                contact_name = active_cfg.name
+                contact_relation = active_cfg.relation
 
-            # 检查是否需要回复（时间段、静默期等）
-            if (should_reply(contact_name, config)
-                    and not is_silent_now(active_cfg)
-                    and has_new_message(wechat_window, contact_name)):
+                # 检查是否需要回复（时间段、静默期等）
+                if (should_reply(contact_name, config)
+                        and not is_silent_now(active_cfg)
+                        and has_new_message(wechat_window, contact_name)):
 
-                # 活跃联系人发来了新消息 → 回复它，保持锁定
-                user_message = _last_messages.get(contact_name, "")
-                _handle_contact_reply(
-                    wechat_window, config, active_cfg,
-                    contact_name, contact_relation, user_message
-                )
-                reply_count += 1
-                return reply_count
-            else:
-                # 活跃联系人没有新消息 → 解锁，检查其他联系人
-                _active_contact = None
+                    # 活跃联系人发来了新消息 → 回复它，保持锁定
+                    user_message = _last_messages.get(contact_name, "")
+                    _handle_contact_reply(
+                        wechat_window, config, active_cfg,
+                        contact_name, contact_relation, user_message
+                    )
+                    reply_count += 1
+                    return reply_count
+                else:
+                    # 活跃联系人没有新消息 → 解锁，检查其他联系人
+                    _active_contact = None
 
     # ============================================================
     # 第二步：检测其他联系人是否有新消息
     # ============================================================
-    for contact_cfg in config.contacts:
+    for contact_cfg in monitored_contacts:
         contact_name = contact_cfg.name
         contact_relation = contact_cfg.relation
 

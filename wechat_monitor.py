@@ -145,6 +145,8 @@ def activate_chat(
     激活指定联系人的聊天窗口
 
     通过聊天列表中的 ListItemControl 找到联系人并点击。
+    如果列表项不在可视区域内（BoundingRectangle 为零尺寸），
+    会先尝试 ScrollIntoView 滚动到可视区域，再执行点击。
 
     Args:
         wechat_window: 微信主窗口控件
@@ -167,6 +169,25 @@ def activate_chat(
         for item in items:
             try:
                 if item.Name == contact_name:
+                    # 检查 BoundingRectangle 是否有效（非零尺寸）
+                    rect = item.BoundingRectangle
+                    if rect is None or (rect.width() == 0 and rect.height() == 0):
+                        print(f"[监控] 联系人 '{contact_name}' 不在可视区域，尝试滚动...")
+                        # 方法1：尝试 ScrollIntoView
+                        try:
+                            scroll_pattern = item.GetScrollItemPattern()
+                            if scroll_pattern:
+                                scroll_pattern.ScrollIntoView(waitTime=0.5)
+                                time.sleep(0.3)
+                        except Exception:
+                            pass
+                        # 方法2：尝试 SetFocus
+                        try:
+                            item.SetFocus()
+                            time.sleep(0.2)
+                        except Exception:
+                            pass
+
                     item.Click()
                     time.sleep(0.3)
                     return True
@@ -404,6 +425,101 @@ def get_last_message_text(wechat_window: auto.WindowControl) -> Optional[str]:
     except Exception as e:
         print(f"[监控] 获取最后消息失败: {e}")
         return None
+
+
+def get_last_other_message_text(wechat_window: auto.WindowControl) -> Optional[str]:
+    """
+    获取当前聊天窗口中最后一条「对方发送」的消息文本内容
+
+    通过导航到右侧面板的消息列表，从最后一项开始向前遍历，
+    找到第一条不是自己发出的消息（通过 ClassName 或子控件特征判断）。
+    用于区分自己发的消息和对方发的消息，避免把自己刚发的回复当作新消息。
+
+    Args:
+        wechat_window: 微信主窗口控件
+
+    Returns:
+        最后一条对方消息的文本内容，获取失败返回 None
+    """
+    try:
+        right_panel = _navigate_to_right_panel(wechat_window)
+        if not right_panel:
+            return None
+
+        # 在右侧面板中递归查找 ListControl(Name='消息')
+        msg_list = _find_msg_list(right_panel, max_depth=15)
+        if not msg_list:
+            return None
+
+        items = msg_list.GetChildren()
+        if not items:
+            return None
+
+        # 从最后一项开始向前遍历，找到第一条「对方发送」的消息
+        # 微信 PC 版中，自己发的消息通常 ClassName 包含 "Self" 或 "self"
+        # 或者子控件中包含特定的 Button（如撤回按钮）
+        for item in reversed(items):
+            try:
+                # 判断是否为「自己发送」的消息
+                if _is_self_message(item):
+                    continue  # 跳过自己发的消息
+
+                text = item.Name
+                if text and text.strip():
+                    return text.strip()
+            except Exception:
+                continue
+
+        return None
+
+    except Exception as e:
+        print(f"[监控] 获取对方最后消息失败: {e}")
+        return None
+
+
+def _is_self_message(item: auto.Control) -> bool:
+    """
+    判断消息项是否为自己发出的消息
+
+    微信 PC 版中，自己发的消息和对方发的消息在 UI 结构上有区别：
+    - 自己发的消息：ClassName 通常包含 "Self" 或子控件中有特定的 Button
+    - 对方发的消息：ClassName 通常不包含 "Self"
+
+    Args:
+        item: 消息列表项控件
+
+    Returns:
+        是否为自己发送的消息
+    """
+    try:
+        # 方法1：检查 ClassName 是否包含 "Self"（微信常见模式）
+        class_name = item.ClassName
+        if class_name and ("Self" in class_name or "self" in class_name):
+            return True
+
+        # 方法2：检查子控件中是否有 Button（自己发的消息通常有更多操作按钮）
+        # 对方消息通常只有文本/图片，自己消息可能有撤回按钮等
+        try:
+            children = item.GetChildren()
+            button_count = sum(1 for c in children if c.ControlTypeName == "ButtonControl")
+            if button_count >= 2:
+                return True
+        except Exception:
+            pass
+
+        # 方法3：检查 AutomationId 是否包含 "self" 特征
+        try:
+            auto_id = item.AutomationId
+            if auto_id and ("self" in auto_id.lower()):
+                return True
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+
+    # 默认认为不是自己发的（即对方消息）
+    return False
 
 
 def get_chat_input_edit(wechat_window: auto.WindowControl) -> Optional[auto.EditControl]:
